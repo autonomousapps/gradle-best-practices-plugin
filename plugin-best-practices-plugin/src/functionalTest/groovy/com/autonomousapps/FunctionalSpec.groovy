@@ -37,10 +37,19 @@ class FunctionalSpec extends Specification {
       
       import org.gradle.api.Plugin;
       import org.gradle.api.Project;
+      import java.util.*;
       
       public class GreetingPlugin implements Plugin<Project> {
         public void apply(Project project) {
-          // a comment
+          project.subprojects(p -> {
+            // a comment
+          });
+          Set<Project> s = project.getSubprojects();
+          
+          project.allprojects(p -> {
+            // a comment
+          });
+          Set<Project> a = project.getAllprojects();
         }
       }
     '''.stripIndent())
