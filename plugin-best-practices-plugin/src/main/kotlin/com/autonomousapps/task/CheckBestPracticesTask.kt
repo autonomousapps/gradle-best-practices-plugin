@@ -2,9 +2,10 @@ package com.autonomousapps.task
 
 import com.autonomousapps.internal.analysis.ClassAnalyzer
 import com.autonomousapps.internal.asm.ClassReader
+import com.autonomousapps.internal.utils.filterToClassFiles
+import com.autonomousapps.internal.utils.getAndDelete
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.logging.Logging
 import org.gradle.api.plugins.JavaBasePlugin
@@ -54,35 +55,27 @@ abstract class CheckBestPracticesTask @Inject constructor(
     private val logger = Logging.getLogger(CheckBestPracticesTask::class.java.simpleName)
 
     override fun execute() {
-      val output = parameters.output.get().asFile.apply { delete() }
+      val output = parameters.output.getAndDelete()
 
       val classFiles = parameters.classesDirs.asFileTree.filterToClassFiles().files
-      logger.quiet("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
+      logger.debug("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
 
-      classFiles.forEach { classFile ->
-        classFile.inputStream().use {
-          val visitor = ClassReader(it.readBytes()).let { classReader ->
+      val issues = classFiles.flatMap { classFile ->
+        classFile.inputStream().use { fis ->
+          val visitor = ClassReader(fis.readBytes()).let { classReader ->
             ClassAnalyzer(logger).apply {
               classReader.accept(this, 0)
             }
           }
 
-          visitor.issues.forEach { issue ->
-            logger.quiet("Issue: ${issue.description}")
-          }
+          visitor.issues.map { it.description() }
         }
       }
 
-      // TODO print to output file
+      output.writeText(issues.joinToString(separator = "\n"))
+      if (issues.isNotEmpty()) {
+        logger.quiet("Violations of best practices detected. See the report at ${output.absolutePath}")
+      }
     }
-  }
-}
-
-/**
- * Filters a [FileCollection] to contain only class files (and not the module-info.class file).
- */
-internal fun FileCollection.filterToClassFiles(): FileCollection {
-  return filter {
-    it.isFile && it.name.endsWith(".class") && it.name != "module-info.class"
   }
 }

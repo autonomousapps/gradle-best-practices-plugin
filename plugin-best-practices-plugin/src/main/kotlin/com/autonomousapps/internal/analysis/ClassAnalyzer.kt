@@ -3,6 +3,11 @@ package com.autonomousapps.internal.analysis
 import com.autonomousapps.internal.asm.ClassVisitor
 import com.autonomousapps.internal.asm.MethodVisitor
 import com.autonomousapps.internal.asm.Opcodes
+import com.autonomousapps.issue.AllprojectsIssue
+import com.autonomousapps.issue.GetAllprojectsIssue
+import com.autonomousapps.issue.GetSubprojectsIssue
+import com.autonomousapps.issue.Issue
+import com.autonomousapps.issue.SubprojectsIssue
 import org.gradle.api.logging.Logger
 
 private const val ASM_VERSION = Opcodes.ASM9
@@ -10,6 +15,8 @@ private const val ASM_VERSION = Opcodes.ASM9
 internal class ClassAnalyzer(private val logger: Logger) : ClassVisitor(ASM_VERSION) {
 
   val issues = mutableSetOf<Issue>()
+
+  private val trace = mutableListOf<String>()
 
   override fun visit(
     version: Int,
@@ -19,40 +26,48 @@ internal class ClassAnalyzer(private val logger: Logger) : ClassVisitor(ASM_VERS
     superName: String?,
     interfaces: Array<out String>?
   ) {
-    logger.quiet("Visiting $name")
+    logger.debug("Visiting $name super=$superName")
+    trace.add(name.dotty())
   }
 
   override fun visitMethod(
-    access: Int, name: String?, descriptor: String, signature: String?, exceptions: Array<out String>?
+    access: Int,
+    name: String,
+    descriptor: String,
+    signature: String?,
+    exceptions: Array<out String>?
   ): MethodVisitor {
-    logger.quiet("- visitMethod: $name; $descriptor")
-    return MethodAnalyzer(logger, issues)
+    logger.debug("- visitMethod: $name; $descriptor")
+
+    val thisTrace = ArrayList(trace).apply { add(name) }
+    return MethodAnalyzer(logger, issues, thisTrace)
   }
 
   internal class MethodAnalyzer(
     private val logger: Logger,
-    private val issues: MutableSet<Issue>
+    private val issues: MutableSet<Issue>,
+    private val trace: MutableList<String>
   ) : MethodVisitor(ASM_VERSION) {
 
-    // visitMethod: apply; (Lorg/gradle/api/Project;)V
-    // visitMethodInsn: owner=org/gradle/api/Project name=subprojects
-    // visitMethodInsn: owner=org/gradle/api/Project name=getSubprojects
-    // visitMethodInsn: owner=org/gradle/api/Project name=allprojects
-    // visitMethodInsn: owner=org/gradle/api/Project name=getAllprojects
     override fun visitMethodInsn(
       opcode: Int,
-      owner: String?,
-      name: String?,
+      owner: String,
+      name: String,
       descriptor: String?,
       isInterface: Boolean
     ) {
-      logger.quiet("  - visitMethodInsn: owner=$owner name=$name")
+      logger.debug("  - visitMethodInsn: owner=$owner name=$name")
+
+      val thisTrace = ArrayList(trace).apply {
+        add("${owner.dotty()}#$name")
+      }
+
       val issue = if (owner == "org/gradle/api/Project") {
         when (name) {
-          "subprojects" -> Issue("Uses subprojects {}")
-          "getSubprojects" -> Issue("Uses getSubprojects()")
-          "allprojects" -> Issue("Uses allprojects {}")
-          "getAllprojects" -> Issue("Uses getAllprojects()")
+          "subprojects" -> SubprojectsIssue(name, thisTrace)
+          "getSubprojects" -> GetSubprojectsIssue(name, thisTrace)
+          "allprojects" -> AllprojectsIssue(name, thisTrace)
+          "getAllprojects" -> GetAllprojectsIssue(name, thisTrace)
           else -> null
         }
       } else {
@@ -63,3 +78,5 @@ internal class ClassAnalyzer(private val logger: Logger) : ClassVisitor(ASM_VERS
     }
   }
 }
+
+internal fun String.dotty(): String = replace('/', '.')

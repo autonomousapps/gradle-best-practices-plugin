@@ -1,78 +1,50 @@
 package com.autonomousapps
 
-
-import org.gradle.testkit.runner.GradleRunner
+import com.autonomousapps.fixture.Project
 import spock.lang.Specification
 import spock.lang.TempDir
 
-import java.lang.management.ManagementFactory
-import java.nio.file.Files
 import java.nio.file.Path
 
-class FunctionalSpec extends Specification {
+import static com.autonomousapps.fixture.Runner.build
+import static com.google.common.truth.Truth.assertThat
+
+final class FunctionalSpec extends Specification {
 
   @TempDir
   Path tempDir
 
-  def "test"() {
+  def "can check best practices"() {
     given:
-    newFile('build.gradle').write('''\
-      plugins {
-        id 'java-gradle-plugin'
-        id 'com.autonomousapps.plugin-best-practices-plugin'
-      }
-      
-      gradlePlugin {
-        plugins {
-          greeting {
-            id = 'com.test.greeting'
-            implementationClass = 'com.test.GreetingPlugin'
-          }
-        }
-      }
-    '''.stripIndent())
-
-    newFile('src/main/java/com/test/GreetingPlugin.java').write('''\
-      package com.test;
-      
-      import org.gradle.api.Plugin;
-      import org.gradle.api.Project;
-      import java.util.*;
-      
-      public class GreetingPlugin implements Plugin<Project> {
-        public void apply(Project project) {
-          project.subprojects(p -> {
-            // a comment
-          });
-          Set<Project> s = project.getSubprojects();
-          
-          project.allprojects(p -> {
-            // a comment
-          });
-          Set<Project> a = project.getAllprojects();
-        }
-      }
-    '''.stripIndent())
+    def project = new Project(tempDir)
 
     when:
-    def result = GradleRunner.create()
-      .withPluginClasspath()
-      .forwardOutput()
-    //.withGradleVersion(gradleVersion.version)
-      .withProjectDir(tempDir.toFile())
-      .withArguments("checkBestPractices", "-s")
-    // Ensure this value is true when `--debug-jvm` is passed to Gradle, and false otherwise
-      .withDebug(ManagementFactory.getRuntimeMXBean().inputArguments.toString().indexOf("-agentlib:jdwp") > 0)
-      .build()
+    def result = build(project.root, 'checkBestPractices')
 
     then:
-    result.output.contains('classFiles')
-    result.output.contains('GreetingPlugin.class')
+    def issues = project.report.readLines()
+    assertThat(issues).containsExactly(
+      'com.test.GreetingPlugin -> apply -> org.gradle.api.Project#subprojects',
+      'com.test.GreetingPlugin -> apply -> org.gradle.api.Project#getSubprojects',
+      'com.test.GreetingPlugin -> apply -> org.gradle.api.Project#allprojects',
+      'com.test.GreetingPlugin -> apply -> org.gradle.api.Project#getAllprojects',
+    )
   }
 
-  private Path newFile(String path) {
-    def file = tempDir.resolve(path)
-    Files.createDirectories(file.parent)
-    return Files.createFile(file)
+  def "can check best practices with 'check' task"() {
+    given:
+    def project = new Project(tempDir)
+
+    when:
+    def result = build(project.root, 'check')
+
+    then:
+    def issues = project.report.readLines()
+    assertThat(issues).containsExactly(
+      'com.test.GreetingPlugin -> apply -> org.gradle.api.Project#subprojects',
+      'com.test.GreetingPlugin -> apply -> org.gradle.api.Project#getSubprojects',
+      'com.test.GreetingPlugin -> apply -> org.gradle.api.Project#allprojects',
+      'com.test.GreetingPlugin -> apply -> org.gradle.api.Project#getAllprojects',
+    )
   }
 }
