@@ -1,6 +1,6 @@
 package com.autonomousapps
 
-import com.autonomousapps.fixture.Project
+import com.autonomousapps.fixture.SimplePluginProject
 import spock.lang.Specification
 import spock.lang.TempDir
 
@@ -16,7 +16,7 @@ final class FunctionalSpec extends Specification {
 
   def "can check best practices"() {
     given:
-    def project = new Project(tempDir)
+    def project = new SimplePluginProject(tempDir)
 
     when:
     def result = build(project.root, 'checkBestPractices')
@@ -33,7 +33,7 @@ final class FunctionalSpec extends Specification {
 
   def "can check best practices with 'check' task"() {
     given:
-    def project = new Project(tempDir)
+    def project = new SimplePluginProject(tempDir)
 
     when:
     def result = build(project.root, 'check')

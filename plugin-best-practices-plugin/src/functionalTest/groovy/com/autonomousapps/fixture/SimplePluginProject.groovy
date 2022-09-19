@@ -3,11 +3,11 @@ package com.autonomousapps.fixture
 import java.nio.file.Files
 import java.nio.file.Path
 
-final class Project {
+final class SimplePluginProject {
 
   private final Path tempDir
 
-  Project(Path tempDir) {
+  SimplePluginProject(Path tempDir) {
     this.tempDir = tempDir
     build()
   }
@@ -50,6 +50,47 @@ final class Project {
             // a comment
           });
           Set<Project> a = project.getAllprojects();
+        }
+      }
+    '''.stripIndent())
+
+    newFile('src/main/java/com/test/GreetingTask.java').write('''\
+      package com.test;
+      
+      import org.gradle.api.DefaultTask;
+      import org.gradle.api.Project;
+      import org.gradle.api.tasks.TaskAction;
+      
+      public abstract class GreetingTask extends DefaultTask {
+      
+        @TaskAction
+        public void action() {
+        
+        }  
+      }
+    '''.stripIndent())
+
+    newFile('src/main/java/com/test/FancyTask.java').write('''\
+      package com.test;
+      
+      import org.gradle.api.DefaultTask;
+      import org.gradle.api.Project;
+      import org.gradle.api.tasks.TaskAction;
+      
+      public abstract class FancyTask extends DefaultTask {
+      
+        protected abstract void doAction();
+      
+        @TaskAction
+        public void action() {
+          doAction();
+        }
+        
+        public static abstract class ReallyFancyTask extends FancyTask {
+          @Override
+          protected void doAction() {
+            getProject().getLogger().quiet("Hello from ReallyFancyTask");
+          }
         }
       }
     '''.stripIndent())
