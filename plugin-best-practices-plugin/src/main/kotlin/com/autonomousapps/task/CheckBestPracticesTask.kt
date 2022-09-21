@@ -1,6 +1,11 @@
 package com.autonomousapps.task
 
+import com.autonomousapps.internal.analysis.AllProjectsListener
 import com.autonomousapps.internal.analysis.ClassAnalyzer
+import com.autonomousapps.internal.analysis.CompositeIssueListener
+import com.autonomousapps.internal.analysis.GetProjectListener
+import com.autonomousapps.internal.analysis.IssueListener
+import com.autonomousapps.internal.analysis.SubProjectsListener
 import com.autonomousapps.internal.asm.ClassReader
 import com.autonomousapps.internal.utils.filterToClassFiles
 import com.autonomousapps.internal.utils.getAndDelete
@@ -60,22 +65,32 @@ abstract class CheckBestPracticesTask @Inject constructor(
       val classFiles = parameters.classesDirs.asFileTree.filterToClassFiles().files
       logger.debug("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
 
+      val listener = compositeListener()
       val issues = classFiles.flatMap { classFile ->
         classFile.inputStream().use { fis ->
-          val visitor = ClassReader(fis.readBytes()).let { classReader ->
-            ClassAnalyzer(logger).apply {
+          ClassReader(fis.readBytes()).let { classReader ->
+            ClassAnalyzer(logger, listener).apply {
               classReader.accept(this, 0)
             }
           }
 
-          visitor.issues.map { it.description() }
+          listener.computeIssues()
         }
       }
 
-      output.writeText(issues.joinToString(separator = "\n"))
+      output.writeText(issues.joinToString(separator = "\n") { it.description() })
       if (issues.isNotEmpty()) {
         logger.quiet("Violations of best practices detected. See the report at ${output.absolutePath}")
       }
+    }
+
+    private fun compositeListener(): IssueListener {
+      val listeners = listOf(
+        AllProjectsListener(),
+        SubProjectsListener(),
+        GetProjectListener(),
+      )
+      return CompositeIssueListener(listeners)
     }
   }
 }
