@@ -66,21 +66,27 @@ abstract class CheckBestPracticesTask @Inject constructor(
       logger.debug("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
 
       val listener = compositeListener()
-      val issues = classFiles.flatMap { classFile ->
+
+      // Visit every class file. Extract information into `listener`.
+      classFiles.forEach { classFile ->
         classFile.inputStream().use { fis ->
           ClassReader(fis.readBytes()).let { classReader ->
             ClassAnalyzer(logger, listener).apply {
               classReader.accept(this, 0)
             }
           }
-
-          listener.computeIssues()
         }
       }
 
+      // This does a global analysis, so must come after the forEach.
+      val issues = listener.computeIssues()
+
+      // Write output to disk.
       output.writeText(issues.joinToString(separator = "\n") { it.description() })
       if (issues.isNotEmpty()) {
         logger.quiet("Violations of best practices detected. See the report at ${output.absolutePath}")
+        // TODO delete?
+        logger.quiet(issues.joinToString(separator = "\n") { it.description() })
       }
     }
 

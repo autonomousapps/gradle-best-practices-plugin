@@ -40,7 +40,12 @@ final class SimplePluginProject {
       import java.util.*;
       
       public class GreetingPlugin implements Plugin<Project> {
+      
+        private Project project;
+      
         public void apply(Project project) {
+          this.project = project;
+        
           project.subprojects(p -> {
             // a comment
           });
@@ -50,6 +55,16 @@ final class SimplePluginProject {
             // a comment
           });
           Set<Project> a = project.getAllprojects();
+          
+          foo();
+        }
+        
+        private void foo() {
+          bar();
+        }
+        
+        private void bar() {
+          project.getLogger().quiet("Foobar!");
         }
       }
     '''.stripIndent())
@@ -90,6 +105,72 @@ final class SimplePluginProject {
           @Override
           protected void doAction() {
             getProject().getLogger().quiet("Hello from ReallyFancyTask");
+          }
+        }
+      }
+    '''.stripIndent())
+
+    newFile('src/main/java/com/test/ParentTask.java').write('''\
+      package com.test;
+      
+      import org.gradle.api.DefaultTask;
+      import org.gradle.api.Project;
+      import org.gradle.api.tasks.TaskAction;
+      
+      public abstract class ParentTask extends DefaultTask {
+      
+        protected abstract void doAction();
+      
+        @TaskAction
+        public void action() {
+          foo();
+        }
+        
+        private void foo() {
+          bar();
+        }
+        
+        private void bar() {
+          doAction();
+        }
+        
+        public static abstract class ChildTask extends ParentTask {
+          @Override
+          protected void doAction() {
+            getProject().getLogger().quiet("Hello from ChildTask");
+          }
+        }
+      }
+    '''.stripIndent())
+
+    newFile('src/main/java/com/test/ParentTask2.java').write('''\
+      package com.test;
+      
+      import org.gradle.api.DefaultTask;
+      import org.gradle.api.Project;
+      import org.gradle.api.tasks.TaskAction;
+      
+      public abstract class ParentTask2 extends DefaultTask {
+      
+        protected abstract void doAction();
+      
+        @TaskAction
+        public void action() {
+          doAction();
+        }
+        
+        public static abstract class ChildTask2 extends ParentTask2 {
+          @Override
+          protected void doAction() {
+            foo();
+          }
+        
+          private void foo() {
+            bar();
+          }
+          
+          private void bar() {
+            getProject().getLogger().quiet("Hello from ChildTask2");
           }
         }
       }

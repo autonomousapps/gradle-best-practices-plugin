@@ -19,7 +19,7 @@ final class FunctionalSpec extends Specification {
     def project = new SimplePluginProject(tempDir)
 
     when:
-    def result = build(project.root, 'checkBestPractices')
+    def result = build(project.root, 'checkBestPractices', '-Dbest-practices-logging=quiet')
 
     then:
     def issues = project.report.readLines()

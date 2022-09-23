@@ -20,7 +20,12 @@ dependencies {
   implementation platform('org.jetbrains.kotlin:kotlin-bom')
 
   implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
-  implementation 'com.autonomousapps:asm-relocated:9.2.0.2'
+  implementation('com.autonomousapps:asm-relocated:9.2.0.2') {
+    because 'Bytecode analysis'
+  }
+  implementation('com.google.guava:guava:31.1-jre') {
+    because 'Graphs'
+  }
 }
 
 testing {
