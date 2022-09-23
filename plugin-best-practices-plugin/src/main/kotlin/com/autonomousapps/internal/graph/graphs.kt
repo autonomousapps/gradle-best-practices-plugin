@@ -1,5 +1,7 @@
 package com.autonomousapps.internal.graph
 
+import com.autonomousapps.internal.utils.dotty
+
 internal class Class(
   val name: String,
   val superName: String?
@@ -10,14 +12,14 @@ internal class Method(
   val descriptor: String
 )
 
-internal data class MethodNode(
+data class MethodNode(
   val owner: String,
   val name: String,
   val descriptor: String,
   val metadata: Metadata = Metadata.EMPTY
 ) {
 
-  internal data class Metadata(
+  data class Metadata(
     /** The associated [MethodNode] is annotated with `@TaskAction`. */
     val isTaskAction: Boolean = false,
 
@@ -34,6 +36,7 @@ internal data class MethodNode(
     metadata = metadata.copy(isVirtual = true)
   )
 
+  // TODO is this still useful?
   fun signatureMatches(other: MethodNode): Boolean {
     return name == other.name && descriptor == other.descriptor
   }
@@ -43,7 +46,7 @@ internal data class MethodNode(
     append("#")
     append(name)
     append(descriptor)
-  }
+  }.dotty()
 
   /*
    * Custom equals and hashCode because we don't want to include Metadata in the calculation.

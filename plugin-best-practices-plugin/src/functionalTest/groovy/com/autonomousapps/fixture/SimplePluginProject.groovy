@@ -166,10 +166,10 @@ final class SimplePluginProject {
           }
         
           private void foo() {
-            bar();
+            bar(new int[1], "hello!");
           }
           
-          private void bar() {
+          private void bar(int[] ints, String s) {
             getProject().getLogger().quiet("Hello from ChildTask2");
           }
         }

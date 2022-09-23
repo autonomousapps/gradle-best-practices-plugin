@@ -3,9 +3,11 @@ package com.autonomousapps.task
 import com.autonomousapps.internal.analysis.AllProjectsListener
 import com.autonomousapps.internal.analysis.ClassAnalyzer
 import com.autonomousapps.internal.analysis.CompositeIssueListener
+import com.autonomousapps.internal.analysis.GetAllprojectsListener
 import com.autonomousapps.internal.analysis.GetProjectListener
+import com.autonomousapps.internal.analysis.GetSubprojectsListener
 import com.autonomousapps.internal.analysis.IssueListener
-import com.autonomousapps.internal.analysis.SubProjectsListener
+import com.autonomousapps.internal.analysis.SubprojectsListener
 import com.autonomousapps.internal.asm.ClassReader
 import com.autonomousapps.internal.utils.filterToClassFiles
 import com.autonomousapps.internal.utils.getAndDelete
@@ -93,7 +95,9 @@ abstract class CheckBestPracticesTask @Inject constructor(
     private fun compositeListener(): IssueListener {
       val listeners = listOf(
         AllProjectsListener(),
-        SubProjectsListener(),
+        GetAllprojectsListener(),
+        SubprojectsListener(),
+        GetSubprojectsListener(),
         GetProjectListener(),
       )
       return CompositeIssueListener(listeners)

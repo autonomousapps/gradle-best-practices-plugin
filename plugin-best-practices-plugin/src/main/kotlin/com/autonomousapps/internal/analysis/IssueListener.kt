@@ -1,4 +1,4 @@
-@file:Suppress("UnstableApiUsage") // Guava Graphs
+@file:Suppress("UnstableApiUsage", "HasPlatformType") // Guava Graphs
 
 package com.autonomousapps.internal.analysis
 
@@ -15,6 +15,7 @@ import com.autonomousapps.issue.SubprojectsIssue
 import com.autonomousapps.issue.Trace
 import com.google.common.collect.MultimapBuilder
 import com.google.common.graph.ElementOrder
+import com.google.common.graph.Graph
 import com.google.common.graph.GraphBuilder
 
 internal interface IssueListener {
@@ -24,8 +25,120 @@ internal interface IssueListener {
   fun visitClass(name: String, superName: String?, interfaces: List<String>) = Unit
   fun visitMethod(name: String, descriptor: String) = Unit
   fun visitMethodEnd() = Unit
-  fun visitMethodInstruction(trace: List<String>, owner: String, name: String, descriptor: String) = Unit
-  fun visitMethodAnnotation(trace: List<String>, descriptor: String) = Unit
+  fun visitMethodInstruction(owner: String, name: String, descriptor: String) = Unit
+  fun visitMethodAnnotation(descriptor: String) = Unit
+}
+
+internal abstract class AbstractIssueListener : IssueListener {
+
+  private lateinit var currentClass: Class
+  private var currentMethod: Method? = null
+
+  protected val parentPointers = MultimapBuilder.hashKeys().hashSetValues().build<String, String>()
+  protected val graph = GraphBuilder
+    .directed()
+    .incidentEdgeOrder<MethodNode>(ElementOrder.stable())
+    .allowsSelfLoops(true)
+    .build<MethodNode>()
+
+  final override fun visitClass(name: String, superName: String?, interfaces: List<String>) {
+    currentClass = Class(name, superName)
+    superName?.let { parent ->
+      parentPointers.put(name, parent)
+    }
+    interfaces.forEach { parent ->
+      parentPointers.put(name, parent)
+    }
+    onVisitClass(name, superName, interfaces)
+  }
+
+  protected open fun onVisitClass(name: String, superName: String?, interfaces: List<String>) {
+    // do nothing by default
+  }
+
+  final override fun visitMethod(name: String, descriptor: String) {
+    currentMethod = Method(name, descriptor)
+  }
+
+  final override fun visitMethodEnd() {
+    currentMethod = null
+    onVisitMethodEnd()
+  }
+
+  protected open fun onVisitMethodEnd() {
+    // do nothing by default
+  }
+
+  final override fun visitMethodAnnotation(descriptor: String) {
+    onVisitMethodAnnotation(descriptor)
+  }
+
+  protected open fun onVisitMethodAnnotation(descriptor: String) {
+    // do nothing by default
+  }
+
+  final override fun visitMethodInstruction(owner: String, name: String, descriptor: String) {
+    // put an edge in the graph
+    val source = methodNode()
+    val target = methodInstructionNode(owner, name, descriptor)
+    graph.putEdge(source, target)
+
+    doVisitMethodInstruction(owner, name, descriptor)
+  }
+
+  protected open fun doVisitMethodInstruction(owner: String, name: String, descriptor: String) {
+    // do nothing by default
+  }
+
+  protected fun computeTraces(): Set<Trace> {
+    hydrateGraph()
+
+    val suspectNodes = graph.nodes().filter { isSuspectNode(graph, it) }
+    if (suspectNodes.isEmpty()) return emptySet()
+
+    val entryPoints = graph.nodes().filter { isEntryPointNode(graph, it) }
+    if (entryPoints.isEmpty()) return emptySet()
+
+    // We have valid entry points and suspect exit points. Is there a path between any of them?
+
+    return entryPoints.flatMapTo(HashSet()) { entryNode ->
+      val paths = ShortestPath(graph, entryNode)
+      suspectNodes.asSequence()
+        .map { paths.pathTo(it) }
+        .filter { it.isNotEmpty() }
+        .map { Trace(it) }
+    }
+  }
+
+  protected open fun hydrateGraph() {
+    // do nothing by default
+  }
+
+  abstract fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean
+
+  abstract fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean
+
+  private fun methodNode(): MethodNode {
+    val currentMethod = checkNotNull(currentMethod)
+    return MethodNode(
+      owner = currentClass.name,
+      name = currentMethod.name,
+      descriptor = currentMethod.descriptor,
+      metadata = methodMetadata(),
+    )
+  }
+
+  private fun methodInstructionNode(
+    owner: String,
+    name: String,
+    descriptor: String
+  ) = MethodNode(
+    owner = owner,
+    name = name,
+    descriptor = descriptor
+  )
+
+  protected open fun methodMetadata(): MethodNode.Metadata = MethodNode.Metadata.EMPTY
 }
 
 internal class CompositeIssueListener(
@@ -48,173 +161,103 @@ internal class CompositeIssueListener(
     listeners.forEach { it.visitMethodEnd() }
   }
 
-  override fun visitMethodAnnotation(trace: List<String>, descriptor: String) {
-    listeners.forEach { it.visitMethodAnnotation(trace, descriptor) }
+  override fun visitMethodAnnotation(descriptor: String) {
+    listeners.forEach { it.visitMethodAnnotation(descriptor) }
   }
 
-  override fun visitMethodInstruction(trace: List<String>, owner: String, name: String, descriptor: String) {
-    listeners.forEach { it.visitMethodInstruction(trace, owner, name, descriptor) }
-  }
-}
-
-internal class AllProjectsListener : IssueListener {
-
-  private val issues = mutableSetOf<Issue>()
-
-  override fun computeIssues(): Set<Issue> = issues
-
-  override fun visitMethodInstruction(trace: List<String>, owner: String, name: String, descriptor: String) {
-    val thisTrace = ArrayList(trace).apply {
-      add("$owner#$name")
-    }
-
-    val issue = if (owner == "org/gradle/api/Project") {
-      when (name) {
-        "allprojects" -> AllprojectsIssue(name, Trace(thisTrace))
-        "getAllprojects" -> GetAllprojectsIssue(name, Trace(thisTrace))
-        else -> null
-      }
-    } else {
-      null
-    }
-
-    issue?.let { issues.add(it) }
+  override fun visitMethodInstruction(owner: String, name: String, descriptor: String) {
+    listeners.forEach { it.visitMethodInstruction(owner, name, descriptor) }
   }
 }
 
-internal class SubProjectsListener : IssueListener {
+/** Calls `Project.allprojects()`. */
+internal class AllProjectsListener : AbstractIssueListener() {
 
-  private val issues = mutableSetOf<Issue>()
+  override fun computeIssues(): Set<Issue> = computeTraces().mapTo(HashSet()) { trace ->
+    AllprojectsIssue("allprojects", trace)
+  }
 
-  override fun computeIssues(): Set<Issue> = issues
+  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return graph.inDegree(methodNode) == 0
+  }
 
-  override fun visitMethodInstruction(trace: List<String>, owner: String, name: String, descriptor: String) {
-    val thisTrace = ArrayList(trace).apply {
-      add("${owner}#$name")
-    }
-
-    val issue = if (owner == "org/gradle/api/Project") {
-      when (name) {
-        "subprojects" -> SubprojectsIssue(name, Trace(thisTrace))
-        "getSubprojects" -> GetSubprojectsIssue(name, Trace(thisTrace))
-        else -> null
-      }
-    } else {
-      null
-    }
-
-    issue?.let { issues.add(it) }
+  override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return methodNode.owner == "org/gradle/api/Project" && methodNode.name == "allprojects"
   }
 }
 
-internal class GetProjectListener : IssueListener {
+/** Calls `Project.getAllprojects()`. */
+internal class GetAllprojectsListener : AbstractIssueListener() {
+
+  override fun computeIssues(): Set<Issue> = computeTraces().mapTo(HashSet()) { trace ->
+    GetAllprojectsIssue("getAllprojects", trace)
+  }
+
+  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return graph.inDegree(methodNode) == 0
+  }
+
+  override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return methodNode.owner == "org/gradle/api/Project" && methodNode.name == "getAllprojects"
+  }
+}
+
+/** Calls `Project.subprojects()`. */
+internal class SubprojectsListener : AbstractIssueListener() {
+
+  override fun computeIssues(): Set<Issue> = computeTraces().mapTo(HashSet()) { trace ->
+    SubprojectsIssue("subprojects", trace)
+  }
+
+  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return graph.inDegree(methodNode) == 0
+  }
+
+  override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return methodNode.owner == "org/gradle/api/Project" && methodNode.name == "subprojects"
+  }
+}
+
+
+/** Calls `Project.getSubprojects()`. */
+internal class GetSubprojectsListener : AbstractIssueListener() {
+
+  override fun computeIssues(): Set<Issue> = computeTraces().mapTo(HashSet()) { trace ->
+    GetSubprojectsIssue("getSubprojects", trace)
+  }
+
+  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return graph.inDegree(methodNode) == 0
+  }
+
+  override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return methodNode.owner == "org/gradle/api/Project" && methodNode.name == "getSubprojects"
+  }
+}
+
+/** Calls `Project.getProject()`. */
+internal class GetProjectListener : AbstractIssueListener() {
 
   private var isTaskAction = false
-
-  private lateinit var currentClass: Class
-  private var currentMethod: Method? = null
-
-  private val parentPointers = MultimapBuilder.hashKeys().hashSetValues().build<String, String>()
-  private val graph = GraphBuilder
-    .directed()
-    .incidentEdgeOrder<MethodNode>(ElementOrder.stable())
-    .allowsSelfLoops(true)
-    .build<MethodNode>()
 
   override fun computeIssues(): Set<Issue> = computeTraces().mapTo(HashSet()) { trace ->
     GetProjectInTaskActionIssue("getProject", trace)
   }
 
-  override fun visitClass(name: String, superName: String?, interfaces: List<String>) {
-    currentClass = Class(name, superName)
-    superName?.let { parent ->
-      parentPointers.put(name, parent)
-    }
-    interfaces.forEach { parent ->
-      parentPointers.put(name, parent)
-    }
-  }
-
-  override fun visitMethod(name: String, descriptor: String) {
-    currentMethod = Method(name, descriptor)
-  }
-
-  override fun visitMethodEnd() {
-    currentMethod = null
+  override fun onVisitMethodEnd() {
     isTaskAction = false
   }
 
-  // TODO maybe instead of doing this, we pass some metadata to the visitMethodCall method that contains this boolean
-  //  (and potentially others). Then there's less state to maintain here.
-  override fun visitMethodAnnotation(trace: List<String>, descriptor: String) {
+  override fun onVisitMethodAnnotation(descriptor: String) {
     isTaskAction = descriptor == "Lorg/gradle/api/tasks/TaskAction;"
   }
 
-  override fun visitMethodInstruction(trace: List<String>, owner: String, name: String, descriptor: String) {
-    putEdge(owner, name, descriptor)
+  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return isTaskAction(methodNode)
   }
 
-  private fun computeTraces(): Set<Trace> {
-    hydrateGraph()
-
-    val suspectNodes = graph.nodes().filter(::callsGetProject)
-    if (suspectNodes.isEmpty()) return emptySet()
-
-    val taskActions = graph.nodes().filter(::isTaskAction)
-    if (taskActions.isEmpty()) return emptySet()
-
-    // We have valid entry points and suspect exit points. Is there a path between any of them?
-
-    return taskActions.flatMapTo(HashSet()) { actionNode ->
-      val paths = ShortestPath(graph, actionNode)
-      suspectNodes.asSequence()
-        .map { paths.pathTo(it) }
-        .filter { it.isNotEmpty() }
-        .map { methodNodes -> methodNodes.map { it.string() } }
-        .map { Trace(it) }
-    }
-  }
-
-  /**
-   * TODO ensure this kdoc is accurate.
-   *
-   * Hydrate the graph with artificial nodes and edges to account for class hierarchies and the many paths code may take
-   * to reach suspect method calls.
-   *
-   * Overview of algorithm:
-   * 1. For each child -> parent relationship, look for source nodes (`MethodNode`s) in the parent that are missing in
-   *    the child. E.g., `Parent#action() -> Parent#doAction()`, where the `Child` class has no `action()` method.
-   * 2. Create new "virtual" edges: for each parent edge that starts at a node not found in the child, create an edge
-   *    with its source in the child (i.e., update the `owner` property) and also update the target's `owner` to be the
-   *    child _if_ the original owner is the parent.
-   * 3. Add these virtual edges to the graph. From the example above, imagine adding a virtual edge
-   *    `Child#action() -> Child#doAction()`.
-   */
-  private fun hydrateGraph() {
-    val edges = graph.edges()
-    parentPointers.forEach { child, parent ->
-      val parentEdges = edges.filter { it.source().owner == parent }
-      val missingInChild = parentEdges.filter { edge ->
-        val childEquivalent = edge.source().copy(owner = child)
-        edges.find { it.source() == childEquivalent } == null
-      }
-      missingInChild.forEach { parentEdge ->
-        val newSource = parentEdge.source().copy(owner = child)
-
-        val oldTarget = parentEdge.target()
-        val newTarget = if (oldTarget.owner == parent) {
-          oldTarget.virtualOwner(child)
-        } else {
-          oldTarget
-        }
-
-        if (oldTarget != newTarget) {
-          graph.putEdge(oldTarget, newTarget)
-        }
-//        graph.putEdge(oldTarget, newSource)
-//        graph.putEdge(newSource, newTarget)
-      }
-    }
+  override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return callsGetProject(methodNode)
   }
 
   private fun isTaskAction(methodNode: MethodNode): Boolean {
@@ -225,29 +268,34 @@ internal class GetProjectListener : IssueListener {
     return methodNode.name == "getProject" && methodNode.descriptor == "()Lorg/gradle/api/Project;"
   }
 
-  private fun putEdge(owner: String, name: String, descriptor: String) {
-    val source = methodNode()
-    val target = methodInstructionNode(owner, name, descriptor)
-    graph.putEdge(source, target)
+  /**
+   * Hydrate the graph with artificial nodes and edges to account for class hierarchies and the many paths code may take
+   * to reach suspect method calls.
+   */
+  override fun hydrateGraph() {
+    val edges = graph.edges()
+    parentPointers.forEach { child, parent ->
+      val parentEdges = edges.filter { it.source().owner == parent }
+      val missingInChild = parentEdges.filter { edge ->
+        val childEquivalent = edge.source().copy(owner = child)
+        edges.find { it.source() == childEquivalent } == null
+      }
+      missingInChild.forEach { parentEdge ->
+        val oldTarget = parentEdge.target()
+        val newTarget = if (oldTarget.owner == parent) {
+          oldTarget.virtualOwner(child)
+        } else {
+          oldTarget
+        }
+
+        if (oldTarget != newTarget) {
+          graph.putEdge(oldTarget, newTarget)
+        }
+      }
+    }
   }
 
-  private fun methodNode(): MethodNode {
-    val currentMethod = checkNotNull(currentMethod)
-    return MethodNode(
-      owner = currentClass.name,
-      name = currentMethod.name,
-      descriptor = currentMethod.descriptor,
-      metadata = MethodNode.Metadata(isTaskAction)
-    )
+  override fun methodMetadata(): MethodNode.Metadata {
+    return MethodNode.Metadata(isTaskAction)
   }
-
-  private fun methodInstructionNode(
-    owner: String,
-    name: String,
-    descriptor: String
-  ) = MethodNode(
-    owner = owner,
-    name = name,
-    descriptor = descriptor
-  )
 }

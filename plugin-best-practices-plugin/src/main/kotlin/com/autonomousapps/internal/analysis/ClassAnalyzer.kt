@@ -13,8 +13,6 @@ internal class ClassAnalyzer(
   private val listener: IssueListener,
 ) : ClassVisitor(ASM_VERSION) {
 
-  private val trace = mutableListOf<String>()
-
   override fun visit(
     version: Int,
     access: Int,
@@ -24,7 +22,6 @@ internal class ClassAnalyzer(
     interfaces: Array<String>?
   ) {
     logger.log("ClassAnalyzer#visit: $name super=$superName")
-    trace.add(name)
     listener.visitClass(name, superName, interfaces?.toList() ?: emptyList())
   }
 
@@ -37,15 +34,13 @@ internal class ClassAnalyzer(
   ): MethodVisitor {
     logger.log("- visitMethod: name=$name descriptor=$descriptor signature=$signature access=$access")
 
-    val thisTrace = ArrayList(trace).apply { add(name) }
     listener.visitMethod(name, descriptor)
-    return MethodAnalyzer(logger, listener, thisTrace)
+    return MethodAnalyzer(logger, listener)
   }
 
   internal class MethodAnalyzer(
     private val logger: Logger,
     private val listener: IssueListener,
-    private val trace: MutableList<String>
   ) : MethodVisitor(ASM_VERSION) {
 
     override fun visitEnd() {
@@ -54,7 +49,7 @@ internal class ClassAnalyzer(
 
     override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor? {
       logger.log("  - visitAnnotation: descriptor=$descriptor visible=$visible")
-      listener.visitMethodAnnotation(trace, descriptor)
+      listener.visitMethodAnnotation(descriptor)
       return null
     }
 
@@ -66,7 +61,7 @@ internal class ClassAnalyzer(
       isInterface: Boolean
     ) {
       logger.log("  - visitMethodInsn: owner=$owner name=$name descriptor=$descriptor opcode=$opcode")
-      listener.visitMethodInstruction(trace, owner, name, descriptor)
+      listener.visitMethodInstruction(owner, name, descriptor)
     }
   }
 }
