@@ -26,4 +26,18 @@ final class Runner {
       .withDebug(ManagementFactory.getRuntimeMXBean().inputArguments.toString().indexOf('-agentlib:jdwp') > 0)
       .build()
   }
+
+  static BuildResult buildAndFail(
+    Path projectDir,
+    String... args
+  ) {
+    return GradleRunner.create()
+      .withPluginClasspath()
+      .forwardOutput()
+      .withProjectDir(projectDir.toFile())
+      .withArguments(*args, '-s')
+    // Ensure this value is true when `--debug-jvm` is passed to Gradle, and false otherwise
+      .withDebug(ManagementFactory.getRuntimeMXBean().inputArguments.toString().indexOf('-agentlib:jdwp') > 0)
+      .buildAndFail()
+  }
 }

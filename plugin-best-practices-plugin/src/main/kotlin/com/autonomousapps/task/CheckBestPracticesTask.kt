@@ -14,6 +14,7 @@ import com.autonomousapps.internal.utils.filterToClassFiles
 import com.autonomousapps.internal.utils.getAndDelete
 import com.autonomousapps.issue.IssueRenderer
 import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.logging.Logging
@@ -101,8 +102,8 @@ abstract class CheckBestPracticesTask @Inject constructor(
       output.writeText(text)
 
       if (issues.isNotEmpty()) {
-        logger.quiet("Violations of best practices detected. See the report at ${output.absolutePath} ")
         logger.report(text)
+        throw GradleException("Violations of best practices detected. See the report at ${output.absolutePath} ")
       }
     }
 

@@ -6,7 +6,7 @@ import spock.lang.TempDir
 
 import java.nio.file.Path
 
-import static com.autonomousapps.fixture.Runner.build
+import static com.autonomousapps.fixture.Runner.buildAndFail
 
 final class FunctionalSpec extends Specification {
 
@@ -18,7 +18,7 @@ final class FunctionalSpec extends Specification {
     def project = new SimplePluginProject(tempDir)
 
     when:
-    build(project.root, 'checkBestPractices', '-Dbest-practices-logging=reporting')
+    buildAndFail(project.root, 'checkBestPractices', '-Dbest-practices-logging=reporting')
 
     then:
     project.report.text.trim() == project.expected.trim()
@@ -29,7 +29,7 @@ final class FunctionalSpec extends Specification {
     def project = new SimplePluginProject(tempDir)
 
     when:
-    build(project.root, 'check')
+    buildAndFail(project.root, 'check')
 
     then:
     project.report.text.trim() == project.expected.trim()
