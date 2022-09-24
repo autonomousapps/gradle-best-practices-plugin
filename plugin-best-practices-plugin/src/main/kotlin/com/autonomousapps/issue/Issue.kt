@@ -3,8 +3,6 @@ package com.autonomousapps.issue
 interface Issue {
   val name: String
   val trace: Trace
-
-  fun description(): String = trace.string()
 }
 
 data class SubprojectsIssue(

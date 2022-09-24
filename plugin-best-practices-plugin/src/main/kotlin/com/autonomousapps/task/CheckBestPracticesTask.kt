@@ -11,12 +11,15 @@ import com.autonomousapps.internal.analysis.SubprojectsListener
 import com.autonomousapps.internal.asm.ClassReader
 import com.autonomousapps.internal.utils.filterToClassFiles
 import com.autonomousapps.internal.utils.getAndDelete
+import com.autonomousapps.issue.IssueRenderer
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.logging.Logging
 import org.gradle.api.plugins.JavaBasePlugin
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
@@ -41,6 +44,10 @@ abstract class CheckBestPracticesTask @Inject constructor(
   @get:InputFiles
   abstract val classesDirs: ConfigurableFileCollection
 
+  // best-practices-logging=quiet
+  @get:Input
+  abstract val printToConsole: Property<Boolean>
+
   @get:OutputFile
   abstract val output: RegularFileProperty
 
@@ -48,12 +55,14 @@ abstract class CheckBestPracticesTask @Inject constructor(
   fun action() {
     workerExecutor.noIsolation().submit(Action::class.java) {
       it.classesDirs.setFrom(classesDirs)
+      it.printToConsole.set(printToConsole)
       it.output.set(output)
     }
   }
 
   interface Parameters : WorkParameters {
     val classesDirs: ConfigurableFileCollection
+    val printToConsole: Property<Boolean>
     val output: RegularFileProperty
   }
 
@@ -63,6 +72,7 @@ abstract class CheckBestPracticesTask @Inject constructor(
 
     override fun execute() {
       val output = parameters.output.getAndDelete()
+      val printMore = parameters.printToConsole.get()
 
       val classFiles = parameters.classesDirs.asFileTree.filterToClassFiles().files
       logger.debug("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
@@ -73,7 +83,7 @@ abstract class CheckBestPracticesTask @Inject constructor(
       classFiles.forEach { classFile ->
         classFile.inputStream().use { fis ->
           ClassReader(fis.readBytes()).let { classReader ->
-            ClassAnalyzer(logger, listener).apply {
+            ClassAnalyzer(listener, logger, printMore).apply {
               classReader.accept(this, 0)
             }
           }
@@ -81,14 +91,20 @@ abstract class CheckBestPracticesTask @Inject constructor(
       }
 
       // This does a global analysis, so must come after the forEach.
-      val issues = listener.computeIssues()
+      val issues = listener.computeIssues().sortedBy {
+        it.javaClass.canonicalName ?: it.javaClass.simpleName
+      }
 
       // Write output to disk.
-      output.writeText(issues.joinToString(separator = "\n") { it.description() })
+      val text = issues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) }
+      output.writeText(text)
+
       if (issues.isNotEmpty()) {
-        logger.quiet("Violations of best practices detected. See the report at ${output.absolutePath}")
-        // TODO delete?
-        logger.quiet(issues.joinToString(separator = "\n") { it.description() })
+        logger.quiet("Violations of best practices detected. See the report at ${output.absolutePath} ")
+
+        if (printMore) {
+          logger.quiet(text)
+        }
       }
     }
 

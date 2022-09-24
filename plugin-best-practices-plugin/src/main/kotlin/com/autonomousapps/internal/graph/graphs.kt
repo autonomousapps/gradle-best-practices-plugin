@@ -1,7 +1,5 @@
 package com.autonomousapps.internal.graph
 
-import com.autonomousapps.internal.utils.dotty
-
 internal class Class(
   val name: String,
   val superName: String?
@@ -31,22 +29,14 @@ data class MethodNode(
     }
   }
 
-  fun virtualOwner(owner: String) = copy(
+  fun withVirtualOwner(owner: String) = copy(
     owner = owner,
     metadata = metadata.copy(isVirtual = true)
   )
 
-  // TODO is this still useful?
   fun signatureMatches(other: MethodNode): Boolean {
     return name == other.name && descriptor == other.descriptor
   }
-
-  fun string() = buildString {
-    append(owner)
-    append("#")
-    append(name)
-    append(descriptor)
-  }.dotty()
 
   /*
    * Custom equals and hashCode because we don't want to include Metadata in the calculation.

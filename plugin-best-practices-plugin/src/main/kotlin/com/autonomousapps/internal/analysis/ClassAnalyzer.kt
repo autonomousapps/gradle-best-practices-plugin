@@ -9,9 +9,14 @@ import org.gradle.api.logging.Logger
 private const val ASM_VERSION = Opcodes.ASM9
 
 internal class ClassAnalyzer(
-  private val logger: Logger,
   private val listener: IssueListener,
+  private val logger: Logger,
+  printMore: Boolean,
 ) : ClassVisitor(ASM_VERSION) {
+
+  init {
+    debugPrint = printMore
+  }
 
   override fun visit(
     version: Int,
@@ -66,8 +71,14 @@ internal class ClassAnalyzer(
   }
 }
 
+/*
+ * TODO: should just wrap the logger
+ */
+
+private var debugPrint = false
+
 private fun Logger.log(msg: String) {
-  if (System.getProperty("best-practices-logging") == "quiet") {
+  if (debugPrint) {
     quiet(msg)
   } else {
     debug(msg)

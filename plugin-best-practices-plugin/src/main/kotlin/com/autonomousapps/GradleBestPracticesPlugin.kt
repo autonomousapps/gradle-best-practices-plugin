@@ -20,6 +20,7 @@ class GradleBestPracticesPlugin : Plugin<Project> {
       val bestPractices = tasks.register("checkBestPractices", CheckBestPracticesTask::class.java) {
         with(it) {
           classesDirs.setFrom(mainOutput)
+          printToConsole.set(logLevel())
           output.set(layout.buildDirectory.file("reports/best-practices/check.txt"))
         }
       }
@@ -29,4 +30,12 @@ class GradleBestPracticesPlugin : Plugin<Project> {
       }
     }
   }
+
+  /**
+   * `-Dbest-practices-logging=quiet` will trigger additional logging and console output.
+   */
+  private fun Project.logLevel() = providers
+    .systemProperty("best-practices-logging")
+    .map { logging -> logging == "quiet" }
+    .orElse(false)
 }

@@ -7,7 +7,7 @@ import javax.naming.OperationNotSupportedException
 import java.lang.management.ManagementFactory
 import java.nio.file.Path
 
-class Runner {
+final class Runner {
 
   private Runner() {
     throw new OperationNotSupportedException()

@@ -15,6 +15,7 @@ import com.autonomousapps.issue.SubprojectsIssue
 import com.autonomousapps.issue.Trace
 import com.google.common.collect.MultimapBuilder
 import com.google.common.graph.ElementOrder
+import com.google.common.graph.EndpointPair
 import com.google.common.graph.Graph
 import com.google.common.graph.GraphBuilder
 
@@ -270,28 +271,55 @@ internal class GetProjectListener : AbstractIssueListener() {
 
   /**
    * Hydrate the graph with artificial nodes and edges to account for class hierarchies and the many paths code may take
-   * to reach suspect method calls.
+   * to reach suspect method calls. Example:
+   * ```
+   * // Real method traces
+   * Parent#action -> Parent#doAction   // an abstract method
+   * Child#doAction -> Child#getProject // Child is a Task, and so getProject is suspect _only if_ called from an action
+   *
+   * // What we want
+   * Parent#action -> Parent#doAction   // a real method call
+   * Parent#doAction -> Child#doAction  // a "virtual" method call
+   * Child#doAction -> Child#getProject // a real method call
+   * ```
    */
   override fun hydrateGraph() {
     val edges = graph.edges()
     parentPointers.forEach { child, parent ->
+      // Get all edges in the graph that start at a parent (of the current child) node
       val parentEdges = edges.filter { it.source().owner == parent }
-      val missingInChild = parentEdges.filter { edge ->
-        val childEquivalent = edge.source().copy(owner = child)
-        edges.find { it.source() == childEquivalent } == null
-      }
-      missingInChild.forEach { parentEdge ->
-        val oldTarget = parentEdge.target()
-        val newTarget = if (oldTarget.owner == parent) {
-          oldTarget.virtualOwner(child)
-        } else {
-          oldTarget
-        }
 
-        if (oldTarget != newTarget) {
-          graph.putEdge(oldTarget, newTarget)
-        }
+      // Find edges in the parent that don't have a matching source in the child. E.g., Child has no `action` method.
+      val missingInChild = parentEdges.filter { edge ->
+        edges.any { it.source().signatureMatches(edge.source()) }
       }
+
+      // For every "missing method" in the child, we create a virtual edge in the graph.
+      missingInChild.forEach { parentEdge ->
+        maybeCreateVirtualEdge(child = child, parent = parent, parentEdge = parentEdge)
+      }
+    }
+  }
+
+  private fun maybeCreateVirtualEdge(
+    child: String,
+    parent: String,
+    parentEdge: EndpointPair<MethodNode>
+  ) {
+    val oldTarget = parentEdge.target()
+    var newTarget = if (oldTarget.owner == parent) {
+      oldTarget.withVirtualOwner(child)
+    } else {
+      oldTarget
+    }
+
+    // If there's already a matching node in the graph, just use that one.
+    graph.nodes().find { it == newTarget }?.let {
+      newTarget = it
+    }
+
+    if (oldTarget != newTarget) {
+      graph.putEdge(oldTarget, newTarget)
     }
   }
 

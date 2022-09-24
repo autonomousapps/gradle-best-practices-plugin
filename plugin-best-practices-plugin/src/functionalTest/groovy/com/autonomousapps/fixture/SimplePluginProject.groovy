@@ -182,4 +182,41 @@ final class SimplePluginProject {
     Files.createDirectories(file.parent)
     return Files.createFile(file)
   }
+
+  String expected = '''\
+    com.test.GreetingPlugin#apply(Ljava.lang.Object;)V ->
+      com.test.GreetingPlugin#apply(Lorg.gradle.api.Project;)V ->
+      org.gradle.api.Project#allprojects(Lorg.gradle.api.Action;)V
+    
+    com.test.GreetingPlugin#apply(Ljava.lang.Object;)V ->
+      com.test.GreetingPlugin#apply(Lorg.gradle.api.Project;)V ->
+      org.gradle.api.Project#getAllprojects()Ljava.util.Set;
+    
+    com.test.FancyTask#action()V ->
+      com.test.FancyTask#doAction()V ->
+      com.test.FancyTask$ReallyFancyTask#doAction()V ->
+      com.test.FancyTask$ReallyFancyTask#getProject()Lorg.gradle.api.Project;
+    
+    com.test.ParentTask#action()V ->
+      com.test.ParentTask#foo()V ->
+      com.test.ParentTask#bar()V ->
+      com.test.ParentTask#doAction()V ->
+      com.test.ParentTask$ChildTask#doAction()V ->
+      com.test.ParentTask$ChildTask#getProject()Lorg.gradle.api.Project;
+    
+    com.test.ParentTask2#action()V ->
+      com.test.ParentTask2#doAction()V ->
+      com.test.ParentTask2$ChildTask2#doAction()V ->
+      com.test.ParentTask2$ChildTask2#foo()V ->
+      com.test.ParentTask2$ChildTask2#bar([ILjava.lang.String;)V ->
+      com.test.ParentTask2$ChildTask2#getProject()Lorg.gradle.api.Project;
+    
+    com.test.GreetingPlugin#apply(Ljava.lang.Object;)V ->
+      com.test.GreetingPlugin#apply(Lorg.gradle.api.Project;)V ->
+      org.gradle.api.Project#getSubprojects()Ljava.util.Set;
+    
+    com.test.GreetingPlugin#apply(Ljava.lang.Object;)V ->
+      com.test.GreetingPlugin#apply(Lorg.gradle.api.Project;)V ->
+      org.gradle.api.Project#subprojects(Lorg.gradle.api.Action;)V
+  '''.stripIndent()
 }
