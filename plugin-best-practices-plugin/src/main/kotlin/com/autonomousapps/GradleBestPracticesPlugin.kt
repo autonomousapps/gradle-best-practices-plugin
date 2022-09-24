@@ -1,5 +1,6 @@
 package com.autonomousapps
 
+import com.autonomousapps.internal.logging.ConfigurableLogger
 import com.autonomousapps.task.CheckBestPracticesTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -20,7 +21,7 @@ class GradleBestPracticesPlugin : Plugin<Project> {
       val bestPractices = tasks.register("checkBestPractices", CheckBestPracticesTask::class.java) {
         with(it) {
           classesDirs.setFrom(mainOutput)
-          printToConsole.set(logLevel())
+          logLevel.set(logLevel())
           output.set(layout.buildDirectory.file("reports/best-practices/check.txt"))
         }
       }
@@ -32,10 +33,12 @@ class GradleBestPracticesPlugin : Plugin<Project> {
   }
 
   /**
-   * `-Dbest-practices-logging=quiet` will trigger additional logging and console output.
+   * `-Dbest-practices-logging=<reporting|debug>` will trigger additional logging and console output.
+   *
+   * TODO: use an extension instead of a system property.
    */
   private fun Project.logLevel() = providers
     .systemProperty("best-practices-logging")
-    .map { logging -> logging == "quiet" }
-    .orElse(false)
+    .map { logging -> ConfigurableLogger.Level.of(logging) }
+    .orElse(ConfigurableLogger.Level.NORMAL)
 }

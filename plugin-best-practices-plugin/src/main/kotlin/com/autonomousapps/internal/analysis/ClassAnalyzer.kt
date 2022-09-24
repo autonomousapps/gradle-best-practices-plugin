@@ -11,12 +11,7 @@ private const val ASM_VERSION = Opcodes.ASM9
 internal class ClassAnalyzer(
   private val listener: IssueListener,
   private val logger: Logger,
-  printMore: Boolean,
 ) : ClassVisitor(ASM_VERSION) {
-
-  init {
-    debugPrint = printMore
-  }
 
   override fun visit(
     version: Int,
@@ -26,7 +21,7 @@ internal class ClassAnalyzer(
     superName: String?,
     interfaces: Array<String>?
   ) {
-    logger.log("ClassAnalyzer#visit: $name super=$superName")
+    logger.debug("ClassAnalyzer#visit: $name super=$superName")
     listener.visitClass(name, superName, interfaces?.toList() ?: emptyList())
   }
 
@@ -37,7 +32,7 @@ internal class ClassAnalyzer(
     signature: String?,
     exceptions: Array<out String>?
   ): MethodVisitor {
-    logger.log("- visitMethod: name=$name descriptor=$descriptor signature=$signature access=$access")
+    logger.debug("- visitMethod: name=$name descriptor=$descriptor signature=$signature access=$access")
 
     listener.visitMethod(name, descriptor)
     return MethodAnalyzer(logger, listener)
@@ -53,7 +48,7 @@ internal class ClassAnalyzer(
     }
 
     override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor? {
-      logger.log("  - visitAnnotation: descriptor=$descriptor visible=$visible")
+      logger.debug("  - visitAnnotation: descriptor=$descriptor visible=$visible")
       listener.visitMethodAnnotation(descriptor)
       return null
     }
@@ -65,22 +60,8 @@ internal class ClassAnalyzer(
       descriptor: String,
       isInterface: Boolean
     ) {
-      logger.log("  - visitMethodInsn: owner=$owner name=$name descriptor=$descriptor opcode=$opcode")
+      logger.debug("  - visitMethodInsn: owner=$owner name=$name descriptor=$descriptor opcode=$opcode")
       listener.visitMethodInstruction(owner, name, descriptor)
     }
-  }
-}
-
-/*
- * TODO: should just wrap the logger
- */
-
-private var debugPrint = false
-
-private fun Logger.log(msg: String) {
-  if (debugPrint) {
-    quiet(msg)
-  } else {
-    debug(msg)
   }
 }

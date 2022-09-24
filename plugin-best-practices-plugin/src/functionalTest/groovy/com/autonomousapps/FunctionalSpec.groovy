@@ -18,7 +18,7 @@ final class FunctionalSpec extends Specification {
     def project = new SimplePluginProject(tempDir)
 
     when:
-    build(project.root, 'checkBestPractices', '-Dbest-practices-logging=quiet')
+    build(project.root, 'checkBestPractices', '-Dbest-practices-logging=reporting')
 
     then:
     project.report.text.trim() == project.expected.trim()

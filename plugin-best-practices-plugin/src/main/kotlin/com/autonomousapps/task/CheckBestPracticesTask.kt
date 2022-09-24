@@ -9,6 +9,7 @@ import com.autonomousapps.internal.analysis.GetSubprojectsListener
 import com.autonomousapps.internal.analysis.IssueListener
 import com.autonomousapps.internal.analysis.SubprojectsListener
 import com.autonomousapps.internal.asm.ClassReader
+import com.autonomousapps.internal.logging.ConfigurableLogger
 import com.autonomousapps.internal.utils.filterToClassFiles
 import com.autonomousapps.internal.utils.getAndDelete
 import com.autonomousapps.issue.IssueRenderer
@@ -44,9 +45,8 @@ abstract class CheckBestPracticesTask @Inject constructor(
   @get:InputFiles
   abstract val classesDirs: ConfigurableFileCollection
 
-  // best-practices-logging=quiet
   @get:Input
-  abstract val printToConsole: Property<Boolean>
+  abstract val logLevel: Property<ConfigurableLogger.Level>
 
   @get:OutputFile
   abstract val output: RegularFileProperty
@@ -55,24 +55,25 @@ abstract class CheckBestPracticesTask @Inject constructor(
   fun action() {
     workerExecutor.noIsolation().submit(Action::class.java) {
       it.classesDirs.setFrom(classesDirs)
-      it.printToConsole.set(printToConsole)
+      it.logLevel.set(logLevel)
       it.output.set(output)
     }
   }
 
   interface Parameters : WorkParameters {
     val classesDirs: ConfigurableFileCollection
-    val printToConsole: Property<Boolean>
+    val logLevel: Property<ConfigurableLogger.Level>
     val output: RegularFileProperty
   }
 
   abstract class Action : WorkAction<Parameters> {
 
-    private val logger = Logging.getLogger(CheckBestPracticesTask::class.java.simpleName)
+    private val logger = Logging.getLogger(CheckBestPracticesTask::class.java.simpleName).run {
+      ConfigurableLogger(this, parameters.logLevel.get())
+    }
 
     override fun execute() {
       val output = parameters.output.getAndDelete()
-      val printMore = parameters.printToConsole.get()
 
       val classFiles = parameters.classesDirs.asFileTree.filterToClassFiles().files
       logger.debug("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
@@ -83,7 +84,7 @@ abstract class CheckBestPracticesTask @Inject constructor(
       classFiles.forEach { classFile ->
         classFile.inputStream().use { fis ->
           ClassReader(fis.readBytes()).let { classReader ->
-            ClassAnalyzer(listener, logger, printMore).apply {
+            ClassAnalyzer(listener, logger).apply {
               classReader.accept(this, 0)
             }
           }
@@ -101,10 +102,7 @@ abstract class CheckBestPracticesTask @Inject constructor(
 
       if (issues.isNotEmpty()) {
         logger.quiet("Violations of best practices detected. See the report at ${output.absolutePath} ")
-
-        if (printMore) {
-          logger.quiet(text)
-        }
+        logger.report(text)
       }
     }
 
