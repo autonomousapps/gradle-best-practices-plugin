@@ -12,8 +12,20 @@ data class Trace(
 ) {
 
   init {
-    check(trace.isNotEmpty()) { "Cannot have an empty trace" }
+    check(trace.size > 1) { "Trace must have at least two elements. Was $trace" }
   }
 
-  fun string() = trace.joinToString(separator = " -> ") { it.string() }
+  fun string() = buildString {
+    append(trace.first().string())
+    appendLine(" ->")
+    trace.drop(1).forEach {
+      append("  ")
+      append(it.string())
+      appendLine(" ->")
+    }
+  }
+
+//  fun string(): String {
+//    return trace.joinToString(separator = " -> ") { it.string() }
+//  }
 }
