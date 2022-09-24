@@ -3,6 +3,7 @@ plugins {
   id 'org.jetbrains.kotlin.jvm'
   id 'groovy'
   id 'maven-publish'
+  id 'com.gradle.plugin-publish'
 }
 
 group = 'com.autonomousapps'
@@ -62,6 +63,8 @@ gradlePlugin {
     plugin {
       id = 'com.autonomousapps.plugin-best-practices-plugin'
       implementationClass = 'com.autonomousapps.GradleBestPracticesPlugin'
+      displayName = 'Gradle Best Practices Plugin'
+      description = 'Gradle Plugin that detects violations of Gradle best practices in Gradle Plugins'
     }
   }
 }
@@ -70,4 +73,10 @@ gradlePlugin.testSourceSets(sourceSets.functionalTest)
 
 tasks.named('check') {
   dependsOn(testing.suites.functionalTest)
+}
+
+pluginBundle {
+  website = 'https://github.com/autonomousapps/gradle-best-practices-plugin'
+  vcsUrl = 'https://github.com/autonomousapps/gradle-best-practices-plugin'
+  tags = ['best practices']
 }
