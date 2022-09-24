@@ -84,10 +84,10 @@ internal abstract class AbstractIssueListener : IssueListener {
     val target = methodInstructionNode(owner, name, descriptor)
     graph.putEdge(source, target)
 
-    doVisitMethodInstruction(owner, name, descriptor)
+    onVisitMethodInstruction(owner, name, descriptor)
   }
 
-  protected open fun doVisitMethodInstruction(owner: String, name: String, descriptor: String) {
+  protected open fun onVisitMethodInstruction(owner: String, name: String, descriptor: String) {
     // do nothing by default
   }
 
