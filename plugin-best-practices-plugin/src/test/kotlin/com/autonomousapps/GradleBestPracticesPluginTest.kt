@@ -6,14 +6,13 @@ import org.junit.jupiter.api.Test
 
 class GradleBestPracticesPluginTest {
 
-  @Test fun `plugin doesn't register task`() {
+  @Test fun `plugin registers task`() {
     // Create a test project and apply the plugin
     val project = ProjectBuilder.builder().build()
-    project.plugins.apply("java")
+    project.plugins.apply("java-gradle-plugin")
     project.plugins.apply("com.autonomousapps.plugin-best-practices-plugin")
 
     // Verify the result
-    assertThat(project.tasks.findByName("greeting")).isNull()
     assertThat(project.tasks.findByName("checkBestPractices")).isNotNull()
   }
 }

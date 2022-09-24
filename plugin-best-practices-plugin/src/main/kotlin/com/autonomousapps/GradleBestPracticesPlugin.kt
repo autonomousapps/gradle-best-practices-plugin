@@ -10,7 +10,7 @@ import org.gradle.api.tasks.SourceSetContainer
 class GradleBestPracticesPlugin : Plugin<Project> {
 
   override fun apply(project: Project): Unit = project.run {
-    pluginManager.withPlugin("java") {
+    pluginManager.withPlugin("java-gradle-plugin") {
       val mainOutput = extensions.getByType(SourceSetContainer::class.java)
         .findByName(SourceSet.MAIN_SOURCE_SET_NAME)
         ?.output
