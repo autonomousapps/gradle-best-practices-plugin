@@ -1,6 +1,6 @@
 package com.autonomousapps.issue
 
-import com.autonomousapps.internal.graph.MethodNode
+import com.autonomousapps.internal.graphs.MethodNode
 
 /**
  * Code path to problematic method call. Never empty. See also [Issue].

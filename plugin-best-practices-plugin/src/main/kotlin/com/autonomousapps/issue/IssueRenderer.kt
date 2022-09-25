@@ -1,6 +1,6 @@
 package com.autonomousapps.issue
 
-import com.autonomousapps.internal.graph.MethodNode
+import com.autonomousapps.internal.graphs.MethodNode
 import com.autonomousapps.internal.utils.dotty
 
 internal object IssueRenderer {

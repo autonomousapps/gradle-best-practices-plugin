@@ -1,4 +1,4 @@
-package com.autonomousapps.internal.graph
+package com.autonomousapps.internal.graphs
 
 import com.google.common.graph.EndpointPair
 import com.google.common.graph.Graph

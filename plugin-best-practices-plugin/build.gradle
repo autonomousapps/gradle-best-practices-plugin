@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'com.autonomousapps'
-version = '0.2'
+version = '0.3'
 
 java {
   toolchain {
@@ -71,8 +71,12 @@ gradlePlugin {
 
 gradlePlugin.testSourceSets(sourceSets.functionalTest)
 
-tasks.named('check') {
+def check = tasks.named('check') {
   dependsOn(testing.suites.functionalTest)
+}
+
+tasks.named('publishPlugins') {
+  dependsOn(check)
 }
 
 pluginBundle {

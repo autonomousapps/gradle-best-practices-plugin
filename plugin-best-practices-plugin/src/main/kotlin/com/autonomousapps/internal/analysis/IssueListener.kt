@@ -2,10 +2,10 @@
 
 package com.autonomousapps.internal.analysis
 
-import com.autonomousapps.internal.graph.Class
-import com.autonomousapps.internal.graph.Method
-import com.autonomousapps.internal.graph.MethodNode
-import com.autonomousapps.internal.graph.ShortestPath
+import com.autonomousapps.internal.graphs.Class
+import com.autonomousapps.internal.graphs.Method
+import com.autonomousapps.internal.graphs.MethodNode
+import com.autonomousapps.internal.graphs.ShortestPath
 import com.autonomousapps.issue.AllprojectsIssue
 import com.autonomousapps.issue.GetAllprojectsIssue
 import com.autonomousapps.issue.GetProjectInTaskActionIssue

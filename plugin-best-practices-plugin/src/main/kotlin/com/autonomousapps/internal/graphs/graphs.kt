@@ -1,4 +1,4 @@
-package com.autonomousapps.internal.graph
+package com.autonomousapps.internal.graphs
 
 internal class Class(
   val name: String,
