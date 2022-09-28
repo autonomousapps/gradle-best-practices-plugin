@@ -12,7 +12,7 @@ version = '0.4-SNAPSHOT'
 
 java {
   toolchain {
-    languageVersion.set(JavaLanguageVersion.of(8))
+    languageVersion.set(JavaLanguageVersion.of(11))
   }
   withJavadocJar()
   withSourcesJar()
@@ -24,6 +24,9 @@ dependencies {
   implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
   implementation('com.autonomousapps:asm-relocated:9.2.0.2') {
     because 'Bytecode analysis'
+  }
+  implementation('com.autonomousapps:graph-support:0.1') {
+    because 'Graphs'
   }
   implementation('com.google.guava:guava:31.1-jre') {
     because 'Graphs'

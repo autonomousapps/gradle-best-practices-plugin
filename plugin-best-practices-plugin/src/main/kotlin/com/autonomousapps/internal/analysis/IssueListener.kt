@@ -2,10 +2,10 @@
 
 package com.autonomousapps.internal.analysis
 
+import com.autonomousapps.graph.ShortestPath
 import com.autonomousapps.internal.graphs.Class
 import com.autonomousapps.internal.graphs.Method
 import com.autonomousapps.internal.graphs.MethodNode
-import com.autonomousapps.internal.graphs.ShortestPath
 import com.autonomousapps.issue.AllprojectsIssue
 import com.autonomousapps.issue.GetAllprojectsIssue
 import com.autonomousapps.issue.GetProjectInTaskActionIssue
@@ -106,6 +106,7 @@ internal abstract class AbstractIssueListener : IssueListener {
       val paths = ShortestPath(graph, entryNode)
       suspectNodes.asSequence()
         .map { paths.pathTo(it) }
+        .map { it.toList() }
         .filter { it.isNotEmpty() }
         .map { Trace(it) }
     }
