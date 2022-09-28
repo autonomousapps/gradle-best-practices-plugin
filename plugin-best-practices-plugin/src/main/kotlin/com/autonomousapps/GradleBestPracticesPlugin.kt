@@ -23,7 +23,7 @@ class GradleBestPracticesPlugin : Plugin<Project> {
         with(it) {
           classesDirs.setFrom(mainOutput)
           logLevel.set(extension.level)
-          output.set(layout.buildDirectory.file("reports/best-practices/check.txt"))
+          output.set(layout.buildDirectory.file("reports/best-practices/report.txt"))
         }
       }
 

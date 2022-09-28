@@ -15,7 +15,7 @@ final class SimplePluginProject {
   }
 
   Path root = tempDir
-  Path report = root.resolve('build/reports/best-practices/check.txt')
+  Path report = root.resolve('build/reports/best-practices/report.txt')
 
   private void build() {
     newFile('build.gradle').write("""\
