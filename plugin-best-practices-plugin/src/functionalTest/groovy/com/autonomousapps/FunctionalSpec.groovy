@@ -15,10 +15,10 @@ final class FunctionalSpec extends Specification {
 
   def "can check best practices with 'checkBestPractices' task"() {
     given:
-    def project = new SimplePluginProject(tempDir)
+    def project = new SimplePluginProject(tempDir, 'reporting')
 
     when:
-    buildAndFail(project.root, 'checkBestPractices', '-Dbest-practices-logging=reporting')
+    buildAndFail(project.root, 'checkBestPractices')
 
     then:
     project.report.text.trim() == project.expected.trim()

@@ -1,6 +1,5 @@
 package com.autonomousapps
 
-import com.autonomousapps.internal.logging.ConfigurableLogger
 import com.autonomousapps.task.CheckBestPracticesTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -12,6 +11,8 @@ class GradleBestPracticesPlugin : Plugin<Project> {
 
   override fun apply(project: Project): Unit = project.run {
     pluginManager.withPlugin("java-gradle-plugin") {
+      val extension = GradleBestPracticesExtension.create(this)
+
       val mainOutput = extensions.getByType(SourceSetContainer::class.java)
         .findByName(SourceSet.MAIN_SOURCE_SET_NAME)
         ?.output
@@ -21,7 +22,7 @@ class GradleBestPracticesPlugin : Plugin<Project> {
       val bestPractices = tasks.register("checkBestPractices", CheckBestPracticesTask::class.java) {
         with(it) {
           classesDirs.setFrom(mainOutput)
-          logLevel.set(logLevel())
+          logLevel.set(extension.level)
           output.set(layout.buildDirectory.file("reports/best-practices/check.txt"))
         }
       }
@@ -31,14 +32,4 @@ class GradleBestPracticesPlugin : Plugin<Project> {
       }
     }
   }
-
-  /**
-   * `-Dbest-practices-logging=<reporting|debug>` will trigger additional logging and console output.
-   *
-   * TODO: use an extension instead of a system property.
-   */
-  private fun Project.logLevel() = providers
-    .systemProperty("best-practices-logging")
-    .map { logging -> ConfigurableLogger.Level.of(logging) }
-    .orElse(ConfigurableLogger.Level.NORMAL)
 }

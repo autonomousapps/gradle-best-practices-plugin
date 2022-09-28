@@ -4,6 +4,7 @@ plugins {
   id 'groovy'
   id 'maven-publish'
   id 'com.gradle.plugin-publish'
+  id 'com.autonomousapps.plugin-best-practices-plugin'
 }
 
 group = 'com.autonomousapps'

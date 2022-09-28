@@ -4,25 +4,18 @@ import org.gradle.api.logging.Logger
 
 class ConfigurableLogger(
   private val delegate: Logger,
-  private val level: Level = Level.NORMAL
+  private val level: Level = Level.default
 ) : Logger by delegate {
 
+  @Suppress("EnumEntryName") // improved Gradle DSL support
   enum class Level {
-    NORMAL,
-    REPORTING,
-    DEBUG;
-
-    companion object {
-      fun of(level: String) = when (level) {
-        "reporting" -> REPORTING
-        "debug" -> DEBUG
-        else -> NORMAL
-      }
-    }
+    default,
+    reporting,
+    debug
   }
 
   fun report(msg: String) {
-    if (level == Level.REPORTING || level == Level.DEBUG) {
+    if (level == Level.reporting || level == Level.debug) {
       delegate.quiet(msg)
     } else {
       delegate.debug(msg)
@@ -30,7 +23,7 @@ class ConfigurableLogger(
   }
 
   override fun debug(msg: String) {
-    if (level == Level.DEBUG) {
+    if (level == Level.debug) {
       delegate.quiet(msg)
     } else {
       delegate.debug(msg)

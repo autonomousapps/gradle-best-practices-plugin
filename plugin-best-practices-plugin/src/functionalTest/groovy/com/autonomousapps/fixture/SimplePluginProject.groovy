@@ -6,9 +6,11 @@ import java.nio.file.Path
 final class SimplePluginProject {
 
   private final Path tempDir
+  private final String logLevel
 
-  SimplePluginProject(Path tempDir) {
+  SimplePluginProject(Path tempDir, String logLevel = 'default') {
     this.tempDir = tempDir
+    this.logLevel = logLevel
     build()
   }
 
@@ -16,7 +18,7 @@ final class SimplePluginProject {
   Path report = root.resolve('build/reports/best-practices/check.txt')
 
   private void build() {
-    newFile('build.gradle').write('''\
+    newFile('build.gradle').write("""\
       plugins {
         id 'java-gradle-plugin'
         id 'com.autonomousapps.plugin-best-practices-plugin'
@@ -30,7 +32,11 @@ final class SimplePluginProject {
           }
         }
       }
-    '''.stripIndent())
+      
+      gradleBestPractices {
+        logging '$logLevel'
+      }
+    """.stripIndent())
 
     newFile('src/main/java/com/test/GreetingPlugin.java').write('''\
       package com.test;
