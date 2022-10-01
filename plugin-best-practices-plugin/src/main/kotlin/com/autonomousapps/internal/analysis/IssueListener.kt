@@ -92,7 +92,7 @@ internal abstract class AbstractIssueListener : IssueListener {
   }
 
   protected fun computeTraces(): Set<Trace> {
-    hydrateGraph()
+    preComputeTraces()
 
     val suspectNodes = graph.nodes().filter { isSuspectNode(graph, it) }
     if (suspectNodes.isEmpty()) return emptySet()
@@ -112,11 +112,13 @@ internal abstract class AbstractIssueListener : IssueListener {
     }
   }
 
-  protected open fun hydrateGraph() {
+  protected open fun preComputeTraces() {
     // do nothing by default
   }
 
-  abstract fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean
+  protected open fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    return graph.inDegree(methodNode) == 0
+  }
 
   abstract fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean
 
@@ -179,10 +181,6 @@ internal class AllProjectsListener : AbstractIssueListener() {
     AllprojectsIssue("allprojects", trace)
   }
 
-  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
-    return graph.inDegree(methodNode) == 0
-  }
-
   override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
     return methodNode.owner == "org/gradle/api/Project" && methodNode.name == "allprojects"
   }
@@ -193,10 +191,6 @@ internal class GetAllprojectsListener : AbstractIssueListener() {
 
   override fun computeIssues(): Set<Issue> = computeTraces().mapTo(HashSet()) { trace ->
     GetAllprojectsIssue("getAllprojects", trace)
-  }
-
-  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
-    return graph.inDegree(methodNode) == 0
   }
 
   override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
@@ -211,10 +205,6 @@ internal class SubprojectsListener : AbstractIssueListener() {
     SubprojectsIssue("subprojects", trace)
   }
 
-  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
-    return graph.inDegree(methodNode) == 0
-  }
-
   override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
     return methodNode.owner == "org/gradle/api/Project" && methodNode.name == "subprojects"
   }
@@ -226,10 +216,6 @@ internal class GetSubprojectsListener : AbstractIssueListener() {
 
   override fun computeIssues(): Set<Issue> = computeTraces().mapTo(HashSet()) { trace ->
     GetSubprojectsIssue("getSubprojects", trace)
-  }
-
-  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
-    return graph.inDegree(methodNode) == 0
   }
 
   override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
@@ -254,9 +240,7 @@ internal class GetProjectListener : AbstractIssueListener() {
     isTaskAction = descriptor == "Lorg/gradle/api/tasks/TaskAction;"
   }
 
-  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
-    return isTaskAction(methodNode)
-  }
+  override fun isEntryPointNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean = isTaskAction(methodNode)
 
   override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
     return callsGetProject(methodNode)
@@ -268,6 +252,10 @@ internal class GetProjectListener : AbstractIssueListener() {
 
   private fun callsGetProject(methodNode: MethodNode): Boolean {
     return methodNode.name == "getProject" && methodNode.descriptor == "()Lorg/gradle/api/Project;"
+  }
+
+  override fun preComputeTraces() {
+    hydrateGraph()
   }
 
   /**
@@ -284,7 +272,7 @@ internal class GetProjectListener : AbstractIssueListener() {
    * Child#doAction -> Child#getProject // a real method call
    * ```
    */
-  override fun hydrateGraph() {
+  private fun hydrateGraph() {
     val edges = graph.edges()
     parentPointers.forEach { child, parent ->
       // Get all edges in the graph that start at a parent (of the current child) node
