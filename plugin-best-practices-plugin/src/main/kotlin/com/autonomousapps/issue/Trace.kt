@@ -1,10 +1,12 @@
 package com.autonomousapps.issue
 
 import com.autonomousapps.internal.graphs.MethodNode
+import kotlinx.serialization.Serializable
 
 /**
  * Code path to problematic method call. Never empty. See also [Issue].
  */
+@Serializable
 data class Trace(
   /** Code path to problematic method call. Never empty. See also [Issue]. */
   val trace: List<MethodNode>

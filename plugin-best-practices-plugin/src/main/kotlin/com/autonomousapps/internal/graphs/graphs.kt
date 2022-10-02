@@ -1,5 +1,7 @@
 package com.autonomousapps.internal.graphs
 
+import kotlinx.serialization.Serializable
+
 internal class Class(
   val name: String,
   val superName: String?
@@ -10,6 +12,7 @@ internal class Method(
   val descriptor: String
 )
 
+@Serializable
 data class MethodNode(
   val owner: String,
   val name: String,
@@ -17,6 +20,7 @@ data class MethodNode(
   val metadata: Metadata = Metadata.EMPTY
 ) {
 
+  @Serializable
   data class Metadata(
     /** The associated [MethodNode] is annotated with `@TaskAction`. */
     val isTaskAction: Boolean = false,

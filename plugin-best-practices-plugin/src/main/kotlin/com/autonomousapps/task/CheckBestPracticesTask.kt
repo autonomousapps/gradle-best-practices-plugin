@@ -10,6 +10,7 @@ import com.autonomousapps.internal.analysis.IssueListener
 import com.autonomousapps.internal.analysis.SubprojectsListener
 import com.autonomousapps.internal.asm.ClassReader
 import com.autonomousapps.internal.logging.ConfigurableLogger
+import com.autonomousapps.internal.utils.Json.toJson
 import com.autonomousapps.internal.utils.filterToClassFiles
 import com.autonomousapps.internal.utils.getAndDelete
 import com.autonomousapps.issue.IssueRenderer
@@ -50,21 +51,26 @@ abstract class CheckBestPracticesTask @Inject constructor(
   abstract val logLevel: Property<ConfigurableLogger.Level>
 
   @get:OutputFile
-  abstract val output: RegularFileProperty
+  abstract val outputJson: RegularFileProperty
+
+  @get:OutputFile
+  abstract val outputText: RegularFileProperty
 
   @TaskAction
   fun action() {
     workerExecutor.noIsolation().submit(Action::class.java) {
       it.classesDirs.setFrom(classesDirs)
       it.logLevel.set(logLevel)
-      it.output.set(output)
+      it.outputJson.set(outputJson)
+      it.outputText.set(outputText)
     }
   }
 
   interface Parameters : WorkParameters {
     val classesDirs: ConfigurableFileCollection
     val logLevel: Property<ConfigurableLogger.Level>
-    val output: RegularFileProperty
+    val outputJson: RegularFileProperty
+    val outputText: RegularFileProperty
   }
 
   abstract class Action : WorkAction<Parameters> {
@@ -74,7 +80,8 @@ abstract class CheckBestPracticesTask @Inject constructor(
     }
 
     override fun execute() {
-      val output = parameters.output.getAndDelete()
+      val outputJson = parameters.outputJson.getAndDelete()
+      val outputText = parameters.outputText.getAndDelete()
 
       val classFiles = parameters.classesDirs.asFileTree.filterToClassFiles().files
       logger.debug("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
@@ -99,11 +106,12 @@ abstract class CheckBestPracticesTask @Inject constructor(
 
       // Write output to disk.
       val text = issues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) }
-      output.writeText(text)
+      outputText.writeText(text)
+      outputJson.writeText(issues.toJson())
 
       if (issues.isNotEmpty()) {
         logger.report(text)
-        throw GradleException("Violations of best practices detected. See the report at ${output.absolutePath} ")
+        throw GradleException("Violations of best practices detected. See the report at ${outputText.absolutePath} ")
       }
     }
 

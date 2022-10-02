@@ -1,6 +1,7 @@
 plugins {
   id 'java-gradle-plugin'
   id 'org.jetbrains.kotlin.jvm'
+  id 'org.jetbrains.kotlin.plugin.serialization'
   id 'groovy'
   id 'maven-publish'
   id 'com.gradle.plugin-publish'
@@ -30,6 +31,9 @@ dependencies {
   }
   implementation('com.google.guava:guava:31.1-jre') {
     because 'Graphs'
+  }
+  implementation('org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0') {
+    because 'Serialization support'
   }
 }
 
