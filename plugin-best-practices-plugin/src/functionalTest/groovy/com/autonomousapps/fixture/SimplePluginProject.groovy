@@ -16,6 +16,7 @@ final class SimplePluginProject {
 
   Path root = tempDir
   Path report = root.resolve('build/reports/best-practices/report.txt')
+  Path bestPractices = root.resolve('best-practices-baseline.json')
 
   private void build() {
     newFile('build.gradle').write("""\
@@ -189,7 +190,7 @@ final class SimplePluginProject {
     return Files.createFile(file)
   }
 
-  String expected = '''\
+  String expectedReport = '''\
     com.test.GreetingPlugin#apply(Ljava.lang.Object;)V ->
       com.test.GreetingPlugin#apply(Lorg.gradle.api.Project;)V ->
       org.gradle.api.Project#allprojects(Lorg.gradle.api.Action;)V
@@ -224,5 +225,9 @@ final class SimplePluginProject {
     com.test.GreetingPlugin#apply(Ljava.lang.Object;)V ->
       com.test.GreetingPlugin#apply(Lorg.gradle.api.Project;)V ->
       org.gradle.api.Project#subprojects(Lorg.gradle.api.Action;)V
+  '''.stripIndent()
+
+  String expectedBaseline = '''\
+    [{"type":"com.autonomousapps.issue.AllprojectsIssue","name":"allprojects","trace":{"trace":[{"owner":"com/test/GreetingPlugin","name":"apply","descriptor":"(Ljava/lang/Object;)V"},{"owner":"com/test/GreetingPlugin","name":"apply","descriptor":"(Lorg/gradle/api/Project;)V"},{"owner":"org/gradle/api/Project","name":"allprojects","descriptor":"(Lorg/gradle/api/Action;)V"}]}},{"type":"com.autonomousapps.issue.GetAllprojectsIssue","name":"getAllprojects","trace":{"trace":[{"owner":"com/test/GreetingPlugin","name":"apply","descriptor":"(Ljava/lang/Object;)V"},{"owner":"com/test/GreetingPlugin","name":"apply","descriptor":"(Lorg/gradle/api/Project;)V"},{"owner":"org/gradle/api/Project","name":"getAllprojects","descriptor":"()Ljava/util/Set;"}]}},{"type":"com.autonomousapps.issue.GetProjectInTaskActionIssue","name":"getProject","trace":{"trace":[{"owner":"com/test/FancyTask","name":"action","descriptor":"()V","metadata":{"isTaskAction":true}},{"owner":"com/test/FancyTask","name":"doAction","descriptor":"()V"},{"owner":"com/test/FancyTask$ReallyFancyTask","name":"doAction","descriptor":"()V"},{"owner":"com/test/FancyTask$ReallyFancyTask","name":"getProject","descriptor":"()Lorg/gradle/api/Project;"}]}},{"type":"com.autonomousapps.issue.GetProjectInTaskActionIssue","name":"getProject","trace":{"trace":[{"owner":"com/test/ParentTask","name":"action","descriptor":"()V","metadata":{"isTaskAction":true}},{"owner":"com/test/ParentTask","name":"foo","descriptor":"()V"},{"owner":"com/test/ParentTask","name":"bar","descriptor":"()V"},{"owner":"com/test/ParentTask","name":"doAction","descriptor":"()V"},{"owner":"com/test/ParentTask$ChildTask","name":"doAction","descriptor":"()V"},{"owner":"com/test/ParentTask$ChildTask","name":"getProject","descriptor":"()Lorg/gradle/api/Project;"}]}},{"type":"com.autonomousapps.issue.GetProjectInTaskActionIssue","name":"getProject","trace":{"trace":[{"owner":"com/test/ParentTask2","name":"action","descriptor":"()V","metadata":{"isTaskAction":true}},{"owner":"com/test/ParentTask2","name":"doAction","descriptor":"()V"},{"owner":"com/test/ParentTask2$ChildTask2","name":"doAction","descriptor":"()V"},{"owner":"com/test/ParentTask2$ChildTask2","name":"foo","descriptor":"()V"},{"owner":"com/test/ParentTask2$ChildTask2","name":"bar","descriptor":"([ILjava/lang/String;)V"},{"owner":"com/test/ParentTask2$ChildTask2","name":"getProject","descriptor":"()Lorg/gradle/api/Project;"}]}},{"type":"com.autonomousapps.issue.GetSubprojectsIssue","name":"getSubprojects","trace":{"trace":[{"owner":"com/test/GreetingPlugin","name":"apply","descriptor":"(Ljava/lang/Object;)V"},{"owner":"com/test/GreetingPlugin","name":"apply","descriptor":"(Lorg/gradle/api/Project;)V"},{"owner":"org/gradle/api/Project","name":"getSubprojects","descriptor":"()Ljava/util/Set;"}]}},{"type":"com.autonomousapps.issue.SubprojectsIssue","name":"subprojects","trace":{"trace":[{"owner":"com/test/GreetingPlugin","name":"apply","descriptor":"(Ljava/lang/Object;)V"},{"owner":"com/test/GreetingPlugin","name":"apply","descriptor":"(Lorg/gradle/api/Project;)V"},{"owner":"org/gradle/api/Project","name":"subprojects","descriptor":"(Lorg/gradle/api/Action;)V"}]}}]
   '''.stripIndent()
 }

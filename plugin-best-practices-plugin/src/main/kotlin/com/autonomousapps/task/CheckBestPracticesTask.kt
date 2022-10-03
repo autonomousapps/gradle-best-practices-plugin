@@ -10,9 +10,11 @@ import com.autonomousapps.internal.analysis.IssueListener
 import com.autonomousapps.internal.analysis.SubprojectsListener
 import com.autonomousapps.internal.asm.ClassReader
 import com.autonomousapps.internal.logging.ConfigurableLogger
+import com.autonomousapps.internal.utils.Json.fromJsonList
 import com.autonomousapps.internal.utils.Json.toJson
 import com.autonomousapps.internal.utils.filterToClassFiles
 import com.autonomousapps.internal.utils.getAndDelete
+import com.autonomousapps.issue.Issue
 import com.autonomousapps.issue.IssueRenderer
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -23,7 +25,9 @@ import org.gradle.api.plugins.JavaBasePlugin
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -47,6 +51,17 @@ abstract class CheckBestPracticesTask @Inject constructor(
   @get:InputFiles
   abstract val classesDirs: ConfigurableFileCollection
 
+  @get:Optional
+  @get:PathSensitive(PathSensitivity.RELATIVE)
+  @get:InputFile
+  abstract val baseline: RegularFileProperty
+
+  @get:Input
+  abstract val creatingBaseline: Property<Boolean>
+
+  @get:Input
+  abstract val projectPath: Property<String>
+
   @get:Input
   abstract val logLevel: Property<ConfigurableLogger.Level>
 
@@ -60,6 +75,9 @@ abstract class CheckBestPracticesTask @Inject constructor(
   fun action() {
     workerExecutor.noIsolation().submit(Action::class.java) {
       it.classesDirs.setFrom(classesDirs)
+      it.baseline.set(baseline)
+      it.creatingBaseline.set(creatingBaseline)
+      it.projectPath.set(projectPath)
       it.logLevel.set(logLevel)
       it.outputJson.set(outputJson)
       it.outputText.set(outputText)
@@ -68,6 +86,9 @@ abstract class CheckBestPracticesTask @Inject constructor(
 
   interface Parameters : WorkParameters {
     val classesDirs: ConfigurableFileCollection
+    val baseline: RegularFileProperty
+    val creatingBaseline: Property<Boolean>
+    val projectPath: Property<String>
     val logLevel: Property<ConfigurableLogger.Level>
     val outputJson: RegularFileProperty
     val outputText: RegularFileProperty
@@ -86,13 +107,13 @@ abstract class CheckBestPracticesTask @Inject constructor(
       val classFiles = parameters.classesDirs.asFileTree.filterToClassFiles().files
       logger.debug("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
 
-      val listener = compositeListener()
+      val issueListener = compositeListener()
 
-      // Visit every class file. Extract information into `listener`.
+      // Visit every class file. Extract information into `issueListener`.
       classFiles.forEach { classFile ->
         classFile.inputStream().use { fis ->
           ClassReader(fis.readBytes()).let { classReader ->
-            ClassAnalyzer(listener, logger).apply {
+            ClassAnalyzer(issueListener, logger).apply {
               classReader.accept(this, 0)
             }
           }
@@ -100,19 +121,68 @@ abstract class CheckBestPracticesTask @Inject constructor(
       }
 
       // This does a global analysis, so must come after the forEach.
-      val issues = listener.computeIssues().sortedBy {
+      val issues = issueListener.computeIssues().sortedBy {
         it.javaClass.canonicalName ?: it.javaClass.simpleName
       }
 
+      // Get baseline, if it exists.
+      val baseline = parameters.baseline.orNull?.asFile?.readText()?.fromJsonList<Issue>()
+      var hasUnfixedIssues = false
+
+      // Build console text.
+      val text = if (baseline.isNullOrEmpty()) {
+        // no baseline
+        issues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) }
+      } else {
+        // If we have a baseline, the behavior changes
+        val newIssues = issues - baseline.toSet()
+        val fixedIssues = baseline - issues.toSet()
+        val unfixedIssues = baseline - fixedIssues.toSet()
+        hasUnfixedIssues = unfixedIssues.isNotEmpty()
+
+        buildString {
+          if (newIssues.isNotEmpty()) {
+            appendLine("There are new issues:")
+            append(newIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+          } else {
+            appendLine("No new issues.")
+          }
+
+          if (fixedIssues.isNotEmpty()) {
+            appendLine("These issues have been resolved:")
+            append(fixedIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+          }
+
+          if (unfixedIssues.isNotEmpty()) {
+            appendLine("These issues have been ignored as part of your baseline:")
+            append(unfixedIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+          }
+        }
+      }
+
       // Write output to disk.
-      val text = issues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) }
       outputText.writeText(text)
       outputJson.writeText(issues.toJson())
 
-      if (issues.isNotEmpty()) {
+      // Optionally print to console and throw exception.
+      val isCreatingBaseline = parameters.creatingBaseline.get()
+      if (issues.isNotEmpty() && !isCreatingBaseline) {
         logger.report(text)
-        throw GradleException("Violations of best practices detected. See the report at ${outputText.absolutePath} ")
+
+        if (baseline.isNullOrEmpty() || hasUnfixedIssues) {
+          val errorText = buildString {
+            appendLine("Violations of best practices detected. See the report at ${outputText.absolutePath} ")
+            appendLine()
+            appendLine("To create or update the baseline, run `./gradlew ${getProjectPath()}:bestPracticesBaseline`")
+          }
+          throw GradleException(errorText)
+        }
       }
+    }
+
+    private fun getProjectPath(): String {
+      val path = parameters.projectPath.get()
+      return if (path == ":") "" else path
     }
 
     private fun compositeListener(): IssueListener {

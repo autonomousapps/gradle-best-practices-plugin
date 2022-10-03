@@ -2,20 +2,50 @@ package com.autonomousapps
 
 import com.autonomousapps.internal.logging.ConfigurableLogger.Level
 import org.gradle.api.Project
+import org.gradle.api.file.ProjectLayout
+import org.gradle.api.file.RegularFile
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.Provider
+import java.io.File
 import javax.inject.Inject
 
 /**
  * ```
  * gradleBestPractices {
+ *   // Use this to make it easier to incrementally resolve issues.
+ *   // This method accepts a `String`, a `File`, a `RegularFile`, or a `Provider<RegularFile>`.
+ *   // default is "$projectDir/best-practices-baseline.json"
+ *   baseline '<path/to/file/relative/to/project/dir>'
+ *
  *   // default is 'default'
  *   logging '<reporting|debug>'
  * }
  * ```
  */
-open class GradleBestPracticesExtension @Inject constructor(objects: ObjectFactory) {
+@Suppress("unused") // intentional API
+open class GradleBestPracticesExtension @Inject constructor(
+  private val layout: ProjectLayout,
+  objects: ObjectFactory
+) {
 
+  internal val baseline = objects.fileProperty()
   internal val level = objects.property(Level::class.java).convention(Level.default)
+
+  fun baseline(baseline: Provider<out RegularFile>) {
+    this.baseline.set(baseline)
+  }
+
+  fun baseline(baseline: RegularFile) {
+    this.baseline.set(baseline)
+  }
+
+  fun baseline(baseline: File) {
+    this.baseline.set(baseline)
+  }
+
+  fun baseline(baseline: String) {
+    this.baseline.set(layout.projectDirectory.file(baseline))
+  }
 
   /**
    * 1. 'reporting' will emit the report to console (if there are issues).
@@ -26,9 +56,13 @@ open class GradleBestPracticesExtension @Inject constructor(objects: ObjectFacto
   }
 
   internal companion object {
+
+    internal const val BASELINE_DEFAULT = "best-practices-baseline.json"
+
     internal fun create(project: Project) = project.extensions.create(
       "gradleBestPractices",
       GradleBestPracticesExtension::class.java,
+      project.layout,
       project.objects
     )
   }
