@@ -23,10 +23,14 @@ class GradleBestPracticesPlugin : Plugin<Project> {
 
       val baselineTask = tasks.register("bestPracticesBaseline", CreateBaselineTask::class.java)
 
+      // A RegularFileProperty is allowed to wrap a nullable RegularFile
+      @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
       val bestPractices = tasks.register("checkBestPractices", CheckBestPracticesTask::class.java) {
         with(it) {
           classesDirs.setFrom(mainOutput)
-          baseline.set(extension.baseline)
+          baseline.set(extension.baseline.map { f ->
+            if (f.asFile.exists()) f else null
+          })
           creatingBaseline.set(provider { gradle.taskGraph.hasTask(baselineTask.get()) })
           projectPath.set(project.path)
           logLevel.set(extension.level)

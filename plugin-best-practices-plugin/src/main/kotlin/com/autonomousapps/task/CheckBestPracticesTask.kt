@@ -100,6 +100,15 @@ abstract class CheckBestPracticesTask @Inject constructor(
       ConfigurableLogger(this, parameters.logLevel.get())
     }
 
+    private val projectPath by lazy {
+      val path = parameters.projectPath.get()
+      if (path == ":") "" else path
+    }
+
+    private val baselineFixText by lazy {
+      "`./gradlew $projectPath:bestPracticesBaseline`"
+    }
+
     override fun execute() {
       val outputJson = parameters.outputJson.getAndDelete()
       val outputText = parameters.outputText.getAndDelete()
@@ -127,7 +136,8 @@ abstract class CheckBestPracticesTask @Inject constructor(
 
       // Get baseline, if it exists.
       val baseline = parameters.baseline.orNull?.asFile?.readText()?.fromJsonList<Issue>()
-      var hasUnfixedIssues = false
+      var hasNewIssues = false
+      var hasFixedIssues = false
 
       // Build console text.
       val text = if (baseline.isNullOrEmpty()) {
@@ -135,27 +145,35 @@ abstract class CheckBestPracticesTask @Inject constructor(
         issues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) }
       } else {
         // If we have a baseline, the behavior changes
-        val newIssues = issues - baseline.toSet()
-        val fixedIssues = baseline - issues.toSet()
-        val unfixedIssues = baseline - fixedIssues.toSet()
-        hasUnfixedIssues = unfixedIssues.isNotEmpty()
+        // If we find an issue that isn't in the baseline, it's a new issue.
+        val newIssues = issues.filter { it !in baseline }
+        // any issue in the baseline that ISN'T also in the list of current issues has been fixed.
+        val fixedIssues = baseline.filter { it !in issues }
+        // any issue in the baseline that IS in the list of current issues is unfixed.
+        val unfixedIssues = baseline.filter { it in issues }
+        hasNewIssues = newIssues.isNotEmpty()
+        hasFixedIssues = fixedIssues.isNotEmpty()
 
         buildString {
           if (newIssues.isNotEmpty()) {
             appendLine("There are new issues:")
-            append(newIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+            appendLine(newIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+            appendLine()
           } else {
             appendLine("No new issues.")
+            appendLine()
           }
 
           if (fixedIssues.isNotEmpty()) {
-            appendLine("These issues have been resolved:")
-            append(fixedIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+            appendLine("These issues have been resolved and should be removed from your baseline:")
+            appendLine(fixedIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+            appendLine()
           }
 
           if (unfixedIssues.isNotEmpty()) {
             appendLine("These issues have been ignored as part of your baseline:")
-            append(unfixedIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+            appendLine(unfixedIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
+            appendLine()
           }
         }
       }
@@ -169,20 +187,20 @@ abstract class CheckBestPracticesTask @Inject constructor(
       if (issues.isNotEmpty() && !isCreatingBaseline) {
         logger.report(text)
 
-        if (baseline.isNullOrEmpty() || hasUnfixedIssues) {
+        if (baseline.isNullOrEmpty() || hasNewIssues) {
           val errorText = buildString {
             appendLine("Violations of best practices detected. See the report at ${outputText.absolutePath} ")
             appendLine()
-            appendLine("To create or update the baseline, run `./gradlew ${getProjectPath()}:bestPracticesBaseline`")
+            appendLine("To create or update the baseline, run $baselineFixText")
           }
           throw GradleException(errorText)
         }
       }
-    }
 
-    private fun getProjectPath(): String {
-      val path = parameters.projectPath.get()
-      return if (path == ":") "" else path
+      // Users should maintain their baselines.
+      if (hasFixedIssues) {
+        throw GradleException("Your baseline contains resolved issues. Update with $baselineFixText")
+      }
     }
 
     private fun compositeListener(): IssueListener {
