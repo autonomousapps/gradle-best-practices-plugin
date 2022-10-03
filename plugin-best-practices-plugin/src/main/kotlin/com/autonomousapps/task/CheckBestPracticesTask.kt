@@ -182,9 +182,11 @@ abstract class CheckBestPracticesTask @Inject constructor(
       outputText.writeText(text)
       outputJson.writeText(issues.toJson())
 
+      // TODO maybe should split this task into two, one that computes issues and one that emits/throws.
       // Optionally print to console and throw exception.
-      val isCreatingBaseline = parameters.creatingBaseline.get()
-      if (issues.isNotEmpty() && !isCreatingBaseline) {
+      if (parameters.creatingBaseline.get()) return
+
+      if (issues.isNotEmpty()) {
         logger.report(text)
 
         if (baseline.isNullOrEmpty() || hasNewIssues) {

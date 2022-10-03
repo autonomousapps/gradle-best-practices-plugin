@@ -1,6 +1,6 @@
 Gradle Plugin Best Practices Plugin changelog
 
-# Version 0.4, 0.5
+# Version 0.4, 0.5, 0.6
 * [New] New `gradleBestPractices` DSL with two configuration options: `logging` and `baseline`. See KDoc for more info.
 * Now using externally-published `com.autonomousapps:graph-support:0.1` library.
 
