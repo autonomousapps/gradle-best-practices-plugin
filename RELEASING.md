@@ -7,7 +7,7 @@ Release procedure
 5. Publish: `./gradlew :plugin-best-practices-plugin:publishPlugins --no-configuration-cache`
    (this will automatically run all the tests, and won't publish if any fail).
 6. `git tag -a vx.y.z -m "Version x.y.z".`
-7. Update version number `gradle.properties` to next snapshot version (x.y.z-SNAPSHOT).
+7. Update version number `build.gradle` to next snapshot version (x.y.z-SNAPSHOT).
 8. `git commit -am "Prepare next development version."`
 9. `git push && git push --tags`
 
