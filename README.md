@@ -17,7 +17,7 @@ plugins {
 
 Where `:plugin` is the name of your plugin project.
 
-Or, since the `checkBestPractices` is automatically added as a dependency of the `check` task:
+Or, since the `checkBestPractices` task is automatically added as a dependency of the `check` task:
 
 ```shell
 ./gradlew :plugin:check
@@ -25,7 +25,7 @@ Or, since the `checkBestPractices` is automatically added as a dependency of the
 
 ## Example results
 
-The `checkBestPractices` may print a report such as the following:
+The `checkBestPractices` task may print a report such as the following:
 
 ```
 com.test.GreetingPlugin#apply(Ljava.lang.Object;)V ->
