@@ -32,7 +32,7 @@ dependencies {
   implementation('com.google.guava:guava:31.1-jre') {
     because 'Graphs'
   }
-  implementation('org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0') {
+  implementation('org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3') {
     because 'Serialization support'
   }
 }
