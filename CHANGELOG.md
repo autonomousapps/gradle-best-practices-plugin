@@ -1,5 +1,8 @@
 Gradle Plugin Best Practices Plugin changelog
 
+# Version 0.8
+* Use Kotlin 1.7.20.
+
 # Version 0.7
 * [Fixed] Use kotlinx.serialization 1.3.3 instead of 1.4.0 (to sync on Kotlin 1.6.21).
 
