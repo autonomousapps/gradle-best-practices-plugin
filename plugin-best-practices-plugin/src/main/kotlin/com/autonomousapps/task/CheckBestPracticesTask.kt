@@ -3,6 +3,7 @@ package com.autonomousapps.task
 import com.autonomousapps.internal.analysis.AllProjectsListener
 import com.autonomousapps.internal.analysis.ClassAnalyzer
 import com.autonomousapps.internal.analysis.CompositeIssueListener
+import com.autonomousapps.internal.analysis.EagerApisListener
 import com.autonomousapps.internal.analysis.GetAllprojectsListener
 import com.autonomousapps.internal.analysis.GetProjectListener
 import com.autonomousapps.internal.analysis.GetSubprojectsListener
@@ -212,6 +213,7 @@ abstract class CheckBestPracticesTask @Inject constructor(
         SubprojectsListener(),
         GetSubprojectsListener(),
         GetProjectListener(),
+        EagerApisListener(),
       )
       return CompositeIssueListener(listeners)
     }

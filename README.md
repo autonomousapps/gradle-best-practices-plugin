@@ -62,3 +62,13 @@ This will break the [configuration cache](https://docs.gradle.org/nightly/usergu
 `Project`s cannot be serialized.
 
 1. Usages of `getProject()` in the context of a method annotated with `@TaskAction`. 
+
+### Usages of eager APIs instead of lazy ones on the TaskContainer interface
+
+Lazy APIs delay the realization of tasks until they're actually required, which avoids doing intensive work 
+during the configuration phase since it can have a large impact on build performance. 
+Read more [here](https://docs.gradle.org/current/userguide/task_configuration_avoidance.html#sec:old_vs_new_configuration_api_overview)
+
+1. Any usage of `TaskContainer#all`. Use `configureEach` instead
+2. Any usage of `TaskContainer#create`. Use `register` instead
+3. Any usage of `TaskContainer#getByName`. Use `named` instead
