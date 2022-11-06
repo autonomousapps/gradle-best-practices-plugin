@@ -335,7 +335,6 @@ internal class EagerApisListener : AbstractIssueListener() {
   override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
     val methodOwner = methodNode.owner
     val methodName = methodNode.name
-    return eagerApis.containsKey(methodOwner) && eagerApis.getValue(methodOwner)
-      .contains(methodName)
+    return eagerApis[methodOwner]?.contains(methodName) ?: false
   }
 }
