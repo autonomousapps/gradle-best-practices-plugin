@@ -26,4 +26,4 @@ jobs:
       - name: Run tests
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: plugin-best-practices-plugin:check -s
+          arguments: check -s
