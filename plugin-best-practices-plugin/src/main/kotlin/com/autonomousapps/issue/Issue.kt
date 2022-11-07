@@ -37,3 +37,9 @@ data class GetProjectInTaskActionIssue(
   override val name: String,
   override val trace: Trace
 ) : Issue()
+
+@Serializable
+data class EagerApiIssue(
+  override val name: String,
+  override val trace: Trace
+) : Issue()

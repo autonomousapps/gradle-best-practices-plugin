@@ -7,6 +7,7 @@ import com.autonomousapps.internal.graphs.Class
 import com.autonomousapps.internal.graphs.Method
 import com.autonomousapps.internal.graphs.MethodNode
 import com.autonomousapps.issue.AllprojectsIssue
+import com.autonomousapps.issue.EagerApiIssue
 import com.autonomousapps.issue.GetAllprojectsIssue
 import com.autonomousapps.issue.GetProjectInTaskActionIssue
 import com.autonomousapps.issue.GetSubprojectsIssue
@@ -314,5 +315,26 @@ internal class GetProjectListener : AbstractIssueListener() {
 
   override fun methodMetadata(): MethodNode.Metadata {
     return MethodNode.Metadata(isTaskAction)
+  }
+}
+
+/** Invokes Eager APIs instead of Lazy ones.
+ * @see <a href="https://docs.gradle.org/current/userguide/lazy_configuration.html">Lazy Configuration</a>
+ * @see <a href="https://docs.gradle.org/current/userguide/task_configuration_avoidance.html#sec:old_vs_new_configuration_api_overview">Old vs New API Overview</a>
+ */
+internal class EagerApisListener : AbstractIssueListener() {
+
+  private val eagerApis = mapOf(
+    "org/gradle/api/tasks/TaskContainer" to setOf("all", "create", "getByName")
+  )
+
+  override fun computeIssues(): Set<Issue> = computeTraces().mapTo(HashSet()) { trace ->
+    EagerApiIssue("eagerApis", trace)
+  }
+
+  override fun isSuspectNode(graph: Graph<MethodNode>, methodNode: MethodNode): Boolean {
+    val methodOwner = methodNode.owner
+    val methodName = methodNode.name
+    return eagerApis[methodOwner]?.contains(methodName) ?: false
   }
 }
