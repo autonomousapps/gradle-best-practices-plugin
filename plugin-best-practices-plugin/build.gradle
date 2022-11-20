@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'com.autonomousapps'
-version = '0.9'
+version = '0.10-SNAPSHOT'
 
 java {
   toolchain {
