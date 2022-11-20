@@ -6,12 +6,11 @@ pluginManagement {
     mavenCentral()
   }
   
-  def kotlinVersion = '1.7.20'
   plugins {
-    id 'org.jetbrains.kotlin.jvm' version kotlinVersion
-    id 'org.jetbrains.kotlin.plugin.serialization' version kotlinVersion
+    id 'org.jetbrains.kotlin.jvm' version '1.7.20'
     id 'com.gradle.plugin-publish' version '1.0.0'
     id 'com.autonomousapps.plugin-best-practices-plugin' version '0.3'
+    id 'com.autonomousapps.dependency-analysis' version '1.15.0'
   }
 }
 

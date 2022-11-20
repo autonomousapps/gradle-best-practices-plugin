@@ -136,12 +136,12 @@ abstract class CheckBestPracticesTask @Inject constructor(
       }
 
       // Get baseline, if it exists.
-      val baseline = parameters.baseline.orNull?.asFile?.readText()?.fromJsonList<Issue>()
+      val baseline = parameters.baseline.orNull?.asFile?.readText()?.fromJsonList<Issue>().orEmpty()
       var hasNewIssues = false
       var hasFixedIssues = false
 
       // Build console text.
-      val text = if (baseline.isNullOrEmpty()) {
+      val text = if (baseline.isEmpty()) {
         // no baseline
         issues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) }
       } else {
@@ -190,7 +190,7 @@ abstract class CheckBestPracticesTask @Inject constructor(
       if (issues.isNotEmpty()) {
         logger.report(text)
 
-        if (baseline.isNullOrEmpty() || hasNewIssues) {
+        if (baseline.isEmpty() || hasNewIssues) {
           val errorText = buildString {
             appendLine("Violations of best practices detected. See the report at ${outputText.absolutePath} ")
             appendLine()
