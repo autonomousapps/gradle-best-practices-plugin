@@ -1,11 +1,11 @@
 plugins {
   id 'java-gradle-plugin'
   id 'org.jetbrains.kotlin.jvm'
-  id 'org.jetbrains.kotlin.plugin.serialization'
   id 'groovy'
   id 'maven-publish'
   id 'com.gradle.plugin-publish'
   id 'com.autonomousapps.plugin-best-practices-plugin'
+  id 'com.autonomousapps.dependency-analysis'
 }
 
 group = 'com.autonomousapps'
@@ -20,20 +20,32 @@ java {
 }
 
 dependencies {
-  implementation platform('org.jetbrains.kotlin:kotlin-bom')
+  api(libs.moshi.core)
+  api(libs.moshix.sealed.runtime)
 
-  implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
-  implementation('com.autonomousapps:asm-relocated:9.2.0.2') {
+  implementation platform(libs.kotlin.bom)
+  implementation(libs.kotlin.stdlib.jdk8)
+  implementation(libs.moshi.kotlin)
+  implementation(libs.moshix.sealed.reflect)
+  implementation(libs.relocated.asm) {
     because 'Bytecode analysis'
   }
   implementation('com.autonomousapps:graph-support:0.1') {
     because 'Graphs'
   }
-  implementation('com.google.guava:guava:31.1-jre') {
+  implementation(libs.guava) {
     because 'Graphs'
   }
-  implementation('org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1') {
-    because 'Serialization support'
+}
+
+dependencyAnalysis {
+  issues {
+    onAny {
+      severity 'fail'
+    }
+    onUsedTransitiveDependencies {
+      exclude 'org.junit.jupiter:junit-jupiter-api'
+    }
   }
 }
 
