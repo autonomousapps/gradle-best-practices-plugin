@@ -42,6 +42,19 @@ This indicates that your plugin is calling `Project#allprojects()`, which violat
 and also that it calls `Task#getProject()`, which violates best practices when called from the context of a method
 annotated with `@TaskAction`.
 
+## Baselines
+
+In case there are many best practice violations in a project, it's worth generating a baseline to temporarily accept issues, and to prevent new ones from getting onto the main branch.
+
+To generate a baseline run the `bestPracticesBaseline` task:
+```shell
+./gradlew :plugin:bestPracticesBaseline
+```
+
+This will generate a file called: `best-practices-baseline.json` in the project directory.
+Version control this file, so gets propagated to CI and every developer.
+Future executions of `checkBestPractices` task will take this baseline into account and won't fail on recorded violations.
+
 ## Summary of issues currently detected
 
 ### Instances of cross-project configuration
