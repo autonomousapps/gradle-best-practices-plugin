@@ -2,7 +2,7 @@
 
 ## Add to your project
 
-```
+```gradle
 // build.gradle[.kts]
 plugins {
   id("com.autonomousapps.plugin-best-practices-plugin") version "<<latest version>>"
@@ -27,7 +27,7 @@ Or, since the `checkBestPractices` task is automatically added as a dependency o
 
 The `checkBestPractices` task may print a report such as the following:
 
-```
+```groovy
 com.test.GreetingPlugin#apply(Ljava.lang.Object;)V ->
   com.test.GreetingPlugin#apply(Lorg.gradle.api.Project;)V ->
   org.gradle.api.Project#allprojects(Lorg.gradle.api.Action;)V
