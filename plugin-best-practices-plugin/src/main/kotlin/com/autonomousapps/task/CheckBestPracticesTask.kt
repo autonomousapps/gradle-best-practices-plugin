@@ -1,35 +1,17 @@
 package com.autonomousapps.task
 
-import com.autonomousapps.internal.analysis.AllProjectsListener
-import com.autonomousapps.internal.analysis.ClassAnalyzer
-import com.autonomousapps.internal.analysis.CompositeIssueListener
-import com.autonomousapps.internal.analysis.EagerApisListener
-import com.autonomousapps.internal.analysis.GetAllprojectsListener
-import com.autonomousapps.internal.analysis.GetProjectListener
-import com.autonomousapps.internal.analysis.GetSubprojectsListener
-import com.autonomousapps.internal.analysis.IssueListener
-import com.autonomousapps.internal.analysis.SubprojectsListener
-import com.autonomousapps.internal.asm.ClassReader
 import com.autonomousapps.internal.logging.ConfigurableLogger
-import com.autonomousapps.internal.utils.Json.fromJsonList
-import com.autonomousapps.internal.utils.Json.toJson
-import com.autonomousapps.internal.utils.filterToClassFiles
-import com.autonomousapps.internal.utils.getAndDelete
-import com.autonomousapps.issue.Issue
-import com.autonomousapps.issue.IssueRenderer
+import com.autonomousapps.internal.utils.Json.fromJson
+import com.autonomousapps.issue.IssuesReport
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.logging.Logging
 import org.gradle.api.plugins.JavaBasePlugin
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
@@ -38,7 +20,6 @@ import org.gradle.workers.WorkParameters
 import org.gradle.workers.WorkerExecutor
 import javax.inject.Inject
 
-@CacheableTask
 abstract class CheckBestPracticesTask @Inject constructor(
   private val workerExecutor: WorkerExecutor
 ) : DefaultTask() {
@@ -49,16 +30,17 @@ abstract class CheckBestPracticesTask @Inject constructor(
   }
 
   @get:PathSensitive(PathSensitivity.NONE)
-  @get:InputFiles
-  abstract val classesDirs: ConfigurableFileCollection
+  @get:InputFile
+  abstract val reportJson: RegularFileProperty
+
+  @get:PathSensitive(PathSensitivity.NONE)
+  @get:InputFile
+  abstract val reportText: RegularFileProperty
 
   @get:Optional
-  @get:PathSensitive(PathSensitivity.RELATIVE)
+  @get:PathSensitive(PathSensitivity.NONE)
   @get:InputFile
   abstract val baseline: RegularFileProperty
-
-  @get:Input
-  abstract val creatingBaseline: Property<Boolean>
 
   @get:Input
   abstract val projectPath: Property<String>
@@ -66,33 +48,23 @@ abstract class CheckBestPracticesTask @Inject constructor(
   @get:Input
   abstract val logLevel: Property<ConfigurableLogger.Level>
 
-  @get:OutputFile
-  abstract val outputJson: RegularFileProperty
-
-  @get:OutputFile
-  abstract val outputText: RegularFileProperty
-
   @TaskAction
   fun action() {
     workerExecutor.noIsolation().submit(Action::class.java) {
-      it.classesDirs.setFrom(classesDirs)
-      it.baseline.set(baseline)
-      it.creatingBaseline.set(creatingBaseline)
-      it.projectPath.set(projectPath)
-      it.logLevel.set(logLevel)
-      it.outputJson.set(outputJson)
-      it.outputText.set(outputText)
+      it.reportJson.set(this@CheckBestPracticesTask.reportJson)
+      it.reportText.set(this@CheckBestPracticesTask.reportText)
+      it.baseline.set(this@CheckBestPracticesTask.baseline)
+      it.projectPath.set(this@CheckBestPracticesTask.projectPath)
+      it.logLevel.set(this@CheckBestPracticesTask.logLevel)
     }
   }
 
   interface Parameters : WorkParameters {
-    val classesDirs: ConfigurableFileCollection
+    val reportJson: RegularFileProperty
+    val reportText: RegularFileProperty
     val baseline: RegularFileProperty
-    val creatingBaseline: Property<Boolean>
     val projectPath: Property<String>
     val logLevel: Property<ConfigurableLogger.Level>
-    val outputJson: RegularFileProperty
-    val outputText: RegularFileProperty
   }
 
   abstract class Action : WorkAction<Parameters> {
@@ -101,98 +73,32 @@ abstract class CheckBestPracticesTask @Inject constructor(
       ConfigurableLogger(this, parameters.logLevel.get())
     }
 
-    private val projectPath by lazy {
-      val path = parameters.projectPath.get()
-      if (path == ":") "" else path
-    }
-
-    private val baselineFixText by lazy {
-      "`./gradlew $projectPath:bestPracticesBaseline`"
-    }
-
     override fun execute() {
-      val outputJson = parameters.outputJson.getAndDelete()
-      val outputText = parameters.outputText.getAndDelete()
+      // The project path, unless it's ":", in which case use an empty string
+      val projectPath = parameters.projectPath.get().takeUnless { it == ":" } ?: ""
+      val baselineFixText = "`./gradlew $projectPath:bestPracticesBaseline`"
 
-      val classFiles = parameters.classesDirs.asFileTree.filterToClassFiles().files
-      logger.debug("classFiles=${classFiles.joinToString(prefix = "[", postfix = "]")}")
-
-      val issueListener = compositeListener()
-
-      // Visit every class file. Extract information into `issueListener`.
-      classFiles.forEach { classFile ->
-        classFile.inputStream().use { fis ->
-          ClassReader(fis.readBytes()).let { classReader ->
-            ClassAnalyzer(issueListener, logger).apply {
-              classReader.accept(this, 0)
-            }
-          }
-        }
-      }
-
-      // This does a global analysis, so must come after the forEach.
-      val issues = issueListener.computeIssues().sortedBy {
-        it.javaClass.canonicalName ?: it.javaClass.simpleName
-      }
-
+      val report = parameters.reportJson.get().asFile
+      val issues = report.readText().fromJson<IssuesReport>().issues
+      val text = parameters.reportText.get().asFile.readText()
       // Get baseline, if it exists.
-      val baseline = parameters.baseline.orNull?.asFile?.readText()?.fromJsonList<Issue>().orEmpty()
-      var hasNewIssues = false
-      var hasFixedIssues = false
+      val baseline = parameters.baseline.orNull?.asFile?.readText()?.fromJson<IssuesReport>()?.issues.orEmpty()
 
-      // Build console text.
-      val text = if (baseline.isEmpty()) {
-        // no baseline
-        issues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) }
-      } else {
-        // If we have a baseline, the behavior changes
-        // If we find an issue that isn't in the baseline, it's a new issue.
-        val newIssues = issues.filter { it !in baseline }
-        // any issue in the baseline that ISN'T also in the list of current issues has been fixed.
-        val fixedIssues = baseline.filter { it !in issues }
-        // any issue in the baseline that IS in the list of current issues is unfixed.
-        val unfixedIssues = baseline.filter { it in issues }
-        hasNewIssues = newIssues.isNotEmpty()
-        hasFixedIssues = fixedIssues.isNotEmpty()
+      // If we have a baseline, the behavior changes.
+      // If we find an issue that isn't in the baseline, it's a new issue.
+      val newIssues = issues.filter { it !in baseline }
+      // any issue in the baseline that ISN'T also in the list of current issues has been fixed.
+      val fixedIssues = baseline.filter { it !in issues }
+      val hasNewIssues = newIssues.isNotEmpty()
+      val hasFixedIssues = fixedIssues.isNotEmpty()
 
-        buildString {
-          if (newIssues.isNotEmpty()) {
-            appendLine("There are new issues:")
-            appendLine(newIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
-            appendLine()
-          } else {
-            appendLine("No new issues.")
-            appendLine()
-          }
-
-          if (fixedIssues.isNotEmpty()) {
-            appendLine("These issues have been resolved and should be removed from your baseline:")
-            appendLine(fixedIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
-            appendLine()
-          }
-
-          if (unfixedIssues.isNotEmpty()) {
-            appendLine("These issues have been ignored as part of your baseline:")
-            appendLine(unfixedIssues.joinToString(separator = "\n\n") { IssueRenderer.renderIssue(it, pretty = true) })
-            appendLine()
-          }
-        }
-      }
-
-      // Write output to disk.
-      outputText.writeText(text)
-      outputJson.writeText(issues.toJson())
-
-      // TODO maybe should split this task into two, one that computes issues and one that emits/throws.
       // Optionally print to console and throw exception.
-      if (parameters.creatingBaseline.get()) return
-
       if (issues.isNotEmpty()) {
         logger.report(text)
 
         if (baseline.isEmpty() || hasNewIssues) {
           val errorText = buildString {
-            appendLine("Violations of best practices detected. See the report at ${outputText.absolutePath} ")
+            appendLine("Violations of best practices detected. See the report at ${report.absolutePath} ")
             appendLine()
             appendLine("To create or update the baseline, run $baselineFixText")
           }
@@ -204,18 +110,6 @@ abstract class CheckBestPracticesTask @Inject constructor(
       if (hasFixedIssues) {
         throw GradleException("Your baseline contains resolved issues. Update with $baselineFixText")
       }
-    }
-
-    private fun compositeListener(): IssueListener {
-      val listeners = listOf(
-        AllProjectsListener(),
-        GetAllprojectsListener(),
-        SubprojectsListener(),
-        GetSubprojectsListener(),
-        GetProjectListener(),
-        EagerApisListener(),
-      )
-      return CompositeIssueListener(listeners)
     }
   }
 }

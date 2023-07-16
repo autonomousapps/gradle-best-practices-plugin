@@ -1,8 +1,8 @@
 package com.autonomousapps
 
-import com.autonomousapps.GradleBestPracticesExtension.Companion.BASELINE_DEFAULT
 import com.autonomousapps.task.CheckBestPracticesTask
 import com.autonomousapps.task.CreateBaselineTask
+import com.autonomousapps.task.DetectBestPracticesViolationsTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSet
@@ -25,29 +25,41 @@ class GradleBestPracticesPlugin : Plugin<Project> {
 
       // A RegularFileProperty is allowed to wrap a nullable RegularFile
       @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-      val bestPractices = tasks.register("checkBestPractices", CheckBestPracticesTask::class.java) {
+      val detectViolationsTask = tasks.register("detectViolations", DetectBestPracticesViolationsTask::class.java) {
         with(it) {
           classesDirs.setFrom(mainOutput)
           baseline.set(extension.baseline.map { f ->
             if (f.asFile.exists()) f else null
           })
-          creatingBaseline.set(provider { gradle.taskGraph.hasTask(baselineTask.get()) })
-          projectPath.set(project.path)
           logLevel.set(extension.level)
           outputJson.set(layout.buildDirectory.file("reports/best-practices/report.json"))
           outputText.set(layout.buildDirectory.file("reports/best-practices/report.txt"))
         }
       }
 
+      // A RegularFileProperty is allowed to wrap a nullable RegularFile
+      @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+      val checkBestPracticesTask = tasks.register("checkBestPractices", CheckBestPracticesTask::class.java) { t ->
+        with(t) {
+          reportJson.set(detectViolationsTask.flatMap { it.outputJson })
+          reportText.set(detectViolationsTask.flatMap { it.outputText })
+          baseline.set(extension.baseline.map { f ->
+            if (f.asFile.exists()) f else null
+          })
+          logLevel.set(extension.level)
+          projectPath.set(project.path)
+        }
+      }
+
       baselineTask.configure { t ->
         with(t) {
-          baseline.set(extension.baseline.orElse(layout.projectDirectory.file(BASELINE_DEFAULT)))
-          report.set(bestPractices.flatMap { it.outputJson })
+          baseline.set(extension.baseline)
+          report.set(detectViolationsTask.flatMap { it.outputJson })
         }
       }
 
       tasks.named("check").configure {
-        it.dependsOn(bestPractices)
+        it.dependsOn(checkBestPracticesTask)
       }
     }
   }

@@ -34,8 +34,4 @@ internal object Json {
   inline fun <reified T> String.fromJson(): T {
     return getJsonAdapter<T>().fromJson(this)!!
   }
-
-  inline fun <reified T> String.fromJsonList(): List<T> {
-    return getJsonListAdapter<T>().fromJson(this)!!
-  }
 }

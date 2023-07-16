@@ -28,7 +28,7 @@ open class GradleBestPracticesExtension @Inject constructor(
   objects: ObjectFactory
 ) {
 
-  internal val baseline = objects.fileProperty()
+  internal val baseline = objects.fileProperty().convention(layout.projectDirectory.file("best-practices-baseline.json"))
   internal val level = objects.property(Level::class.java).convention(Level.default)
 
   fun baseline(baseline: Provider<out RegularFile>) {
@@ -56,8 +56,6 @@ open class GradleBestPracticesExtension @Inject constructor(
   }
 
   internal companion object {
-
-    internal const val BASELINE_DEFAULT = "best-practices-baseline.json"
 
     internal fun create(project: Project) = project.extensions.create(
       "gradleBestPractices",

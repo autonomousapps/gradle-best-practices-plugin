@@ -3,6 +3,8 @@ package com.autonomousapps.issue
 import com.squareup.moshi.JsonClass
 import dev.zacsweers.moshix.sealed.annotations.TypeLabel
 
+class IssuesReport(val issues: List<Issue>)
+
 @JsonClass(generateAdapter = false, generator = "sealed:type")
 sealed class Issue {
   abstract val name: String

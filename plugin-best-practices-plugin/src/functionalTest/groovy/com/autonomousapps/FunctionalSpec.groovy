@@ -19,12 +19,19 @@ final class FunctionalSpec extends Specification {
     def project = new SimplePluginProject(tempDir, 'reporting')
 
     when:
-    buildAndFail(project.root, 'checkBestPractices')
+    def result = buildAndFail(project.root, 'checkBestPractices')
 
-    then:
-    project.report.text.trim() == project.expectedReport.trim()
+    then: 'Console output matches expected value'
+    result.output.contains project.expectedConsoleOutput
+
+    and: 'File version of console output matches expected value'
+    project.consoleReport.text.trim() == project.expectedConsoleReport.trim()
+
+    and: 'Json report matches expected value'
+    project.jsonReport.text.trim() == project.expectedJsonReport.trim()
   }
 
+  // Same as above, but using `check` lifecycle task instead.
   def "can check best practices with 'check' task"() {
     given:
     def project = new SimplePluginProject(tempDir)
@@ -33,7 +40,7 @@ final class FunctionalSpec extends Specification {
     buildAndFail(project.root, 'check')
 
     then:
-    project.report.text.trim() == project.expectedReport.trim()
+    project.consoleReport.text.trim() == project.expectedConsoleReport.trim()
   }
 
   def "can create best practices baseline"() {
@@ -44,6 +51,19 @@ final class FunctionalSpec extends Specification {
     build(project.root, 'bestPracticesBaseline')
 
     then:
-    project.bestPractices.text.trim() == project.expectedBaseline.trim()
+    project.baselineReport.text.trim() == project.expectedBaseline.trim()
+  }
+
+
+  def "respects baseline"() {
+    given:
+    def project = new SimplePluginProject(tempDir)
+
+    when: 'Generate the baseline and then check best practices'
+    build(project.root, 'bestPracticesBaseline')
+    build(project.root, 'checkBestPractices')
+
+    then: "Build doesn't fail"
+    project.baselineReport.text.trim() == project.expectedBaseline.trim()
   }
 }
