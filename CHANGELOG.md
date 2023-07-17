@@ -1,5 +1,8 @@
 Gradle Plugin Best Practices Plugin changelog
 
+# Version 0.10
+* [Fixed] Baseline was not respected.
+
 # Version 0.9
 * [New] Warn about using Eager APIs on TaskContainer.
 * [Fixed] Use moshi instead of kotlinx-serialization.
