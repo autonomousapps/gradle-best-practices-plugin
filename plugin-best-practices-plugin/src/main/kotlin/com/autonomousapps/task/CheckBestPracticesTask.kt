@@ -3,6 +3,7 @@ package com.autonomousapps.task
 import com.autonomousapps.internal.logging.ConfigurableLogger
 import com.autonomousapps.internal.utils.Json.fromJson
 import com.autonomousapps.issue.IssuesReport
+import com.autonomousapps.logging.LogLevel
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.RegularFileProperty
@@ -46,7 +47,7 @@ abstract class CheckBestPracticesTask @Inject constructor(
   abstract val projectPath: Property<String>
 
   @get:Input
-  abstract val logLevel: Property<ConfigurableLogger.Level>
+  abstract val logLevel: Property<LogLevel>
 
   @TaskAction
   fun action() {
@@ -64,7 +65,7 @@ abstract class CheckBestPracticesTask @Inject constructor(
     val reportText: RegularFileProperty
     val baseline: RegularFileProperty
     val projectPath: Property<String>
-    val logLevel: Property<ConfigurableLogger.Level>
+    val logLevel: Property<LogLevel>
   }
 
   abstract class Action : WorkAction<Parameters> {
