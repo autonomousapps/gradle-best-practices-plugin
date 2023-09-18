@@ -17,6 +17,7 @@ import com.autonomousapps.internal.utils.filterToClassFiles
 import com.autonomousapps.internal.utils.getAndDelete
 import com.autonomousapps.issue.IssueRenderer
 import com.autonomousapps.issue.IssuesReport
+import com.autonomousapps.logging.LogLevel
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -51,7 +52,7 @@ abstract class DetectBestPracticesViolationsTask @Inject constructor(
   abstract val baseline: RegularFileProperty
 
   @get:Input
-  abstract val logLevel: Property<ConfigurableLogger.Level>
+  abstract val logLevel: Property<LogLevel>
 
   @get:OutputFile
   abstract val outputJson: RegularFileProperty
@@ -73,7 +74,7 @@ abstract class DetectBestPracticesViolationsTask @Inject constructor(
   interface Parameters : WorkParameters {
     val classesDirs: ConfigurableFileCollection
     val baseline: RegularFileProperty
-    val logLevel: Property<ConfigurableLogger.Level>
+    val logLevel: Property<LogLevel>
     val outputJson: RegularFileProperty
     val outputText: RegularFileProperty
   }

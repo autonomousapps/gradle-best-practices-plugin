@@ -1,21 +1,15 @@
 package com.autonomousapps.internal.logging
 
+import com.autonomousapps.logging.LogLevel
 import org.gradle.api.logging.Logger
 
-class ConfigurableLogger(
+internal class ConfigurableLogger(
   private val delegate: Logger,
-  private val level: Level = Level.default
+  private val level: LogLevel = LogLevel.default
 ) : Logger by delegate {
 
-  @Suppress("EnumEntryName") // improved Gradle DSL support
-  enum class Level {
-    default,
-    reporting,
-    debug
-  }
-
   fun report(msg: String) {
-    if (level == Level.reporting || level == Level.debug) {
+    if (level == LogLevel.reporting || level == LogLevel.debug) {
       delegate.quiet(msg)
     } else {
       delegate.debug(msg)
@@ -23,7 +17,7 @@ class ConfigurableLogger(
   }
 
   override fun debug(msg: String) {
-    if (level == Level.debug) {
+    if (level == LogLevel.debug) {
       delegate.quiet(msg)
     } else {
       delegate.debug(msg)

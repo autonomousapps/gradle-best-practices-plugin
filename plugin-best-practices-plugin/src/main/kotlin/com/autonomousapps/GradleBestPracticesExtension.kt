@@ -1,6 +1,6 @@
 package com.autonomousapps
 
-import com.autonomousapps.internal.logging.ConfigurableLogger.Level
+import com.autonomousapps.logging.LogLevel
 import org.gradle.api.Project
 import org.gradle.api.file.ProjectLayout
 import org.gradle.api.file.RegularFile
@@ -29,7 +29,7 @@ open class GradleBestPracticesExtension @Inject constructor(
 ) {
 
   internal val baseline = objects.fileProperty().convention(layout.projectDirectory.file("best-practices-baseline.json"))
-  internal val level = objects.property(Level::class.java).convention(Level.default)
+  internal val level = objects.property(LogLevel::class.java).convention(LogLevel.default)
 
   fun baseline(baseline: Provider<out RegularFile>) {
     this.baseline.set(baseline)
@@ -51,7 +51,7 @@ open class GradleBestPracticesExtension @Inject constructor(
    * 1. 'reporting' will emit the report to console (if there are issues).
    * 1. 'debug' will print debug information from the bytecode analysis.
    */
-  fun logging(level: Level) {
+  fun logging(level: LogLevel) {
     this.level.set(level)
   }
 
